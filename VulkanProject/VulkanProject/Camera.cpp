@@ -53,9 +53,9 @@ void Camera::HandleInput(GLFWwindow* window)
 	//glm::vec3 direction(0.0f, 0.0f, -1.0f);
 	glm::vec3 up(0.0f, 1.0f, 0.0f);
 	glm::vec3 direction(
-		cos(glm::radians(verticalAngle)) * sin(glm::radians(horizontalAngle)),
+		cos(glm::radians(verticalAngle)) * cos(glm::radians(horizontalAngle)),
 		sin(glm::radians(verticalAngle)),
-		cos(glm::radians(verticalAngle)) * cos(glm::radians(horizontalAngle))
+		cos(glm::radians(verticalAngle)) * sin(glm::radians(horizontalAngle))
 	);
 
 	//

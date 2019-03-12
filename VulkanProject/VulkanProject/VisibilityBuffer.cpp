@@ -7,6 +7,7 @@ void VisibilityBuffer::InitialiseVulkanApplication()
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore));
 	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore));
+	VisibilityBuffer::CreateCamera();
 	VisibilityBuffer::_CreateGeometry();
 	VisibilityBuffer::CreateVBuffer();
 	VisibilityBuffer::_SetUpUniformBuffers();
@@ -22,7 +23,8 @@ void VisibilityBuffer::InitialiseVulkanApplication()
 
 void VisibilityBuffer::CreateCamera()
 {
-	camera = new Camera(glm::vec3(2.0f, 1.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 60.0f, glm::vec2(_swapChainExtent.width, _swapChainExtent.height), 0.1f, 100.0f);
+
+	camera = new Camera(glm::vec3(-2.0f, 2.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 60.0f, glm::vec2(_swapChainExtent.width, _swapChainExtent.height), 0.1f, 200.0f);
 }
 
 //Destructor
@@ -46,7 +48,7 @@ void VisibilityBuffer::_CreateGeometry()
 	planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
 	planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
 
-	houseModel = new ImportedModel("Textures/dragon.obj", false);
+	houseModel = new ImportedModel("Textures/Sponza/sponza.obj", false);
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
 	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
@@ -275,9 +277,9 @@ void VisibilityBuffer::_SetUpUniformBuffers()
 		if (i == 0)
 		{
 			*modelMat = glm::mat4(1.0f);
-			*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, 0.0f, 0.0f));
-			*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			*modelMat = glm::scale(*modelMat, glm::vec3(2.0f, 2.0f, 2.0f));
+			*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, -1.0f, 0.0f));
+			//*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			*modelMat = glm::scale(*modelMat, glm::vec3(0.05f, 0.05f, 0.05f));
 		}
 		else if (i == 1)
 		{
@@ -299,15 +301,28 @@ void VisibilityBuffer::_SetUpUniformBuffers()
 	VisibilityBuffer::_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(uboVS), &IDMatricesUBOBuffer.buffer, &IDMatricesUBOBuffer.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &IDMatricesVSData);
 	//IDMatricesVSData.model = glm::mat4(1);
 	IDMatricesVSData.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	IDMatricesVSData.view = glm::lookAt(glm::vec3(2.0f, 1.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	IDMatricesVSData.projection = glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, 0.1f, 10.0f);
-	IDMatricesVSData.projection[1][1] *= -1;
+	IDMatricesVSData.view = camera->GetViewMatrix();
+	IDMatricesVSData.projection = camera->GetProjectionMatrix();
+	//IDMatricesVSData.projection[1][1] *= -1;
 
 	void* data;
 	vkMapMemory(_renderer->GetVulkanDevice(), IDMatricesUBOBuffer.memory, 0, sizeof(uboVS), 0, &data);
 	memcpy(data, &IDMatricesVSData, sizeof(uboVS));
 	vkUnmapMemory(_renderer->GetVulkanDevice(), IDMatricesUBOBuffer.memory);
 
+	IDMatricesUBOBuffer.SetUpDescriptorSet();
+}
+
+//Updates the uniform buffers for the descriptor sets
+void VisibilityBuffer::UpdateUniformBuffer()
+{
+	IDMatricesVSData.view = camera->GetViewMatrix();
+	IDMatricesVSData.projection = camera->GetProjectionMatrix();
+
+	void* data;
+	vkMapMemory(_renderer->GetVulkanDevice(), IDMatricesUBOBuffer.memory, 0, sizeof(uboVS), 0, &data);
+	memcpy(data, &IDMatricesUBOBuffer, sizeof(uboVS));
+	vkUnmapMemory(_renderer->GetVulkanDevice(), IDMatricesUBOBuffer.memory);
 	IDMatricesUBOBuffer.SetUpDescriptorSet();
 }
 
@@ -844,6 +859,7 @@ void VisibilityBuffer::Update()
 	while (!glfwWindowShouldClose(_window))
 	{
 		glfwPollEvents();
+		camera->HandleInput(_window);
 		VisibilityBuffer::DrawFrame();
 	}
 
@@ -866,6 +882,7 @@ void VisibilityBuffer::DrawFrame()
 		throw std::runtime_error("Failed to acquire swap chain image!");
 	}
 
+	UpdateUniformBuffer();
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

@@ -105,7 +105,7 @@ namespace vk
 		{
 			glm::vec4 position;
 			glm::vec4 diffuse;
-			glm::vec3 specular;
+			glm::vec3 target;
 			float cutOff;
 		};
 

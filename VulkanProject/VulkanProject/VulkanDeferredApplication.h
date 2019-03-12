@@ -7,7 +7,6 @@
 #include "PlaneMesh.h"
 #include "ImportedModel.h"
 
-
 #define TEX_DIMENSIONS 2048;
 
 class VulkanDeferredApplication : public VulkanWindow
@@ -109,10 +108,17 @@ public:
 	Camera* camera;
 
 
+	glm::mat4 lightView;
+	glm::mat4 lightProjection;
+	glm::mat4 finalLightMatrix;
+	glm::mat4 inverseFinalLightMatrix;
+
 	vk::wrappers::Buffer cameraEyeBuffer;
 	glm::vec4 cameraEye;
 	vk::wrappers::Buffer lightViewMatrixBuffer;
-	glm::mat4 testLightViewMatrix;
+	vk::wrappers::Buffer lightViewMatrixBuffershading;
+	glm::mat4 lightViewMatrixShadowPass;
+
 
 	vk::wrappers::Buffer dynamicUboBuffer;
 	vk::wrappers::Buffer dynamicTextureUboBuffer;

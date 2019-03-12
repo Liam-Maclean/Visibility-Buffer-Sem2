@@ -10,6 +10,6 @@
 int main()
 {
 	Renderer r;
-	VisibilityBuffer va(&r,1000,800);
+	VisibilityBuffer va(&r,1920,1080);
 	return 0;
 }

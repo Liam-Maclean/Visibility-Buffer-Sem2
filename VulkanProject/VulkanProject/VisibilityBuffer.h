@@ -63,6 +63,7 @@ public:
 	void CreateVBuffer();
 	void _CreateShaderBuffer(VkDevice device, VkDeviceSize size, VkBuffer * buffer, VkDeviceMemory* memory, VkBufferUsageFlagBits bufferStage, void* data);
 	void _SetUpUniformBuffers();
+	void UpdateUniformBuffer();
 	void _CreateVIDCommandBuffers();
 	void _CreateVertexFilteringCommandBuffers();
 	void _CreateCommandBuffers() override;

@@ -346,6 +346,7 @@ void Renderer::_SetupDebug()
 	_instance_layers.push_back("VK_LAYER_RENDERDOC_Capture");
 	_instance_layers.push_back("VK_LAYER_LUNARG_standard_validation");
 	_instance_layers.push_back("VK_LAYER_NV_optimus");
+	_instance_layers.push_back("VK_LAYER_NV_nsight");
 	//pushback the instance extention debug reports
 	_instance_extentions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 }

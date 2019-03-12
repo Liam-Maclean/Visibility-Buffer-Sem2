@@ -46,9 +46,10 @@ layout (std430, binding = 5) readonly buffer directionalLightBuffer
 
 layout (binding = 6) uniform sampler2D shadowMapTexture;
 
-layout (set = 0,binding = 7) uniform LightMatrix{
+layout (set = 0,binding = 7) uniform LightMatrix
+{
 	mat4 matrix;
-} lightMatrix;
+}lightMatrix;
 
 layout (set = 0,binding = 8) uniform Camera
 {
@@ -57,7 +58,6 @@ layout (set = 0,binding = 8) uniform Camera
 
 //Out
 layout (location = 0) out vec4 outFragColor;
-
 
 //Main section of the shader
 void main() 
@@ -93,31 +93,25 @@ void main()
 			//diffuseComponent = normalize(diffuseComponent);
 		}
 	}
-	
+
 	//for(int i = 0; i < 1; i++)
 	//{
-	//	//vec4 viewPos = vec4(camera.position.xyz, 0.0f) * vec4(-1.0f, 1.0f, -1.0f, 1.0f);
+	//	vec4 fragPosInvertY = fragPos;
+	//	fragPosInvertY.y = -fragPosInvertY.y;
 	//
-	//
-	//	vec4 shadowClip = -lightMatrix.matrix * vec4(fragPos.xyz, 1.0);
-    //
+	//	vec4 shadowClip = lightMatrix.matrix * vec4(fragPosInvertY.xyz, 1.0);
+	//	
 	//	float shadow = 1.0;
-	//	vec4 shadowCoord = shadowClip / shadowClip.w;
+	//	vec3 shadowCoord = shadowClip.xyz / shadowClip.w;
 	//	shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
-	//
-	//	if (shadowCoord.z > -1.0 && shadowCoord.z < 1.0) 
+	//	float dist = texture(shadowMapTexture, vec2(shadowCoord.st)).r;
+	//	if (dist < shadowCoord.z - 0.005f) 
 	//	{
-	//		float dist = texture(shadowMapTexture, vec2(shadowCoord.st)).r;
-	//		if (shadowCoord.w > 0.0 && dist - 0.005f < shadowCoord.z) 
-	//		{
-	//			shadow = 0.5f;
-	//		}
+	//		shadow = 0.1f;
 	//	}
 	//	
 	//	diffuseComponent *= shadow;
-	//
 	//}
-		
-		outFragColor = (diffuseComponent * albedo);
 
+	outFragColor = diffuseComponent * albedo;	
 }

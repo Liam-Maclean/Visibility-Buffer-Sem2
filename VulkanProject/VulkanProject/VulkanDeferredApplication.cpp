@@ -41,7 +41,7 @@ void VulkanDeferredApplication::Update()
 	{
 		//poll key presses, handle camera and draw the frame to the screen
 		glfwPollEvents();
-		//camera->HandleInput(_window);
+		camera->HandleInput(_window);
 		VulkanDeferredApplication::DrawFrame();
 		
 		//if escape key is pressed close window
@@ -58,8 +58,8 @@ void VulkanDeferredApplication::Update()
 void VulkanDeferredApplication::CreateCamera()
 {
 	//Creates the camera with camera values to create view and projection matrices 
-	cameraEye = glm::vec4(2.0f, 1.0f, 2.0f, 1.0f);
-	camera = new Camera(glm::vec3(cameraEye.x, cameraEye.y, cameraEye.z), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 60.0f, glm::vec2(_swapChainExtent.width, _swapChainExtent.height), 0.1f, 100.0f);
+	cameraEye = glm::vec4(-2.0f, 2.0f, 3.0f, 1.0f);
+	camera = new Camera(glm::vec3(cameraEye.x, cameraEye.y, cameraEye.z), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 60.0f, glm::vec2(_swapChainExtent.width, _swapChainExtent.height), 0.1f, 200.0f);
 	
 }
 
@@ -176,7 +176,7 @@ void VulkanDeferredApplication::_CreateGraphicsPipeline()
 	depthStencilState.depthTestEnable = VK_TRUE;
 	depthStencilState.depthWriteEnable = VK_TRUE;
 	depthStencilState.stencilTestEnable = VK_FALSE;
-	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	depthStencilState.depthBoundsTestEnable = VK_FALSE;
 	depthStencilState.minDepthBounds = 0.0f;
 	depthStencilState.maxDepthBounds = 1.0f;
@@ -297,7 +297,7 @@ void VulkanDeferredApplication::_CreateShadowPipeline()
 	VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {};
 	rasterizerCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizerCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizerCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	rasterizerCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizerCreateInfo.depthClampEnable = VK_FALSE;
 	rasterizerCreateInfo.flags = 0;
@@ -317,7 +317,7 @@ void VulkanDeferredApplication::_CreateShadowPipeline()
 	depthStencilState.depthTestEnable = VK_TRUE;
 	depthStencilState.depthWriteEnable = VK_TRUE;
 	depthStencilState.stencilTestEnable = VK_FALSE;
-	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	depthStencilState.depthBoundsTestEnable = VK_FALSE;
 	depthStencilState.minDepthBounds = 0.0f;
 	depthStencilState.maxDepthBounds = 1.0f;
@@ -353,7 +353,7 @@ void VulkanDeferredApplication::_CreateShadowPipeline()
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
 	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineCreateInfo.layout = _pipelineLayout[PipelineType::shadowMap];
-	pipelineCreateInfo.renderPass = _renderPass;
+	pipelineCreateInfo.renderPass = shadowFrameBuffer.renderPass;
 	pipelineCreateInfo.flags = 0;
 	pipelineCreateInfo.basePipelineIndex = -1;
 	pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
@@ -395,13 +395,6 @@ void VulkanDeferredApplication::UpdateUniformBuffer(uint32_t currentImage)
 	memcpy(data, &offScreenUniformVSData, sizeof(uboVS));
 	vkUnmapMemory(_renderer->GetVulkanDevice(), offScreenVertexUBOBuffer.memory);
 
-	//// Flush to make changes visible to the host 
-	//VkMappedMemoryRange memoryRange = {};
-	//memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	//memoryRange.memory = dynamicUboBuffer.memory;
-	//memoryRange.size = bufferSize;
-	//vkFlushMappedMemoryRanges(_renderer->GetVulkanDevice(), 1, &memoryRange);
-	//
 	offScreenVertexUBOBuffer.SetUpDescriptorSet();
 }
 
@@ -426,13 +419,13 @@ void VulkanDeferredApplication::_CreateGeometry()
 	screenTarget->GetIndexBuffer()->SetUpDescriptorSet();
 	screenTarget->GetVertexBuffer()->SetUpDescriptorSet();
 
-	planeMesh = new PlaneMesh();
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), planeMesh->GetVertexBufferSize(), &planeMesh->GetVertexBuffer()->buffer, &planeMesh->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, planeMesh->GetVertexData());
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), planeMesh->GetIndexBufferSize(), &planeMesh->GetIndexBuffer()->buffer, &planeMesh->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, planeMesh->GetIndexData());
-	planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
-	planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
+	//planeMesh = new PlaneMesh();
+	//_CreateShaderBuffer(_renderer->GetVulkanDevice(), planeMesh->GetVertexBufferSize(), &planeMesh->GetVertexBuffer()->buffer, &planeMesh->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, planeMesh->GetVertexData());
+	//_CreateShaderBuffer(_renderer->GetVulkanDevice(), planeMesh->GetIndexBufferSize(), &planeMesh->GetIndexBuffer()->buffer, &planeMesh->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, planeMesh->GetIndexData());
+	//planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
+	//planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
 
-	houseModel = new ImportedModel("Textures/dragon.obj", false);
+	houseModel = new ImportedModel("Textures/Sponza/sponza.obj", false);
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
 	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
@@ -449,26 +442,24 @@ void VulkanDeferredApplication::_CreateGeometry()
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 
-	_directionalLights[0]->diffuse = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); 
-	_directionalLights[0]->direction = glm::vec4(1.0f, 2.0f, 0.0f, 1.0f);
+	_directionalLights[0]->diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f); 
+	_directionalLights[0]->direction = glm::vec4(1.0f, 1.0f, 2.0f, 1.0f);
 	_directionalLights[0]->specular = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
-	testLightViewMatrix = glm::perspective(glm::radians(100.0f), 1.0f, 1.0f, 64.0f);
-		//ortho(10.0f, -10.0f, -10.0f, 10.0f, 1.0f, 10.0f);
-	glm::mat4 lightView = glm::lookAt(glm::vec3 (2.0f, 4.0f, 0.0f),
-										glm::vec3(0.0f, 1.0f, 0.0f),
-										glm::vec3(0.0f, 1.0f, 0.0f));
+	//testLightViewMatrix = glm::ortho(glm::radians(100.0f), 1.0f, 1.0f, 64.0f);
+	glm::mat4 testLightViewMatrix = glm::mat4(1.0f);
+	testLightViewMatrix = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, -10.0f, 10.0f);
+	//lightView = glm::lookAt(glm::vec3 (1.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-	glm::mat4 shadowModel = glm::mat4(1.0f);
 
-	glm::mat4 lightSpaceMatrix = testLightViewMatrix * lightView * shadowModel;
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(glm::mat4), &lightViewMatrixBuffer.buffer, &lightViewMatrixBuffer.memory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &lightSpaceMatrix);
+	glm::mat4 perspectView = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 60.0f);
+	lightView = glm::mat4(1.0f);
+	lightView = glm::lookAt(glm::vec3(1.0f, 1.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-	//_directionalLights[0]->lightViewMatrix = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 7.5f);
-
-	//_directionalLights[1]->diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-	//_directionalLights[1]->direction = glm::vec4(-1.0f, 0.0f, 0.0f, 1.0f);
-	//_directionalLights[1]->specular = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	finalLightMatrix = testLightViewMatrix * lightView * glm::mat4(1.0f);
+	inverseFinalLightMatrix =  finalLightMatrix;
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(glm::mat4), &lightViewMatrixBuffer.buffer, &lightViewMatrixBuffer.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &finalLightMatrix);
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(glm::mat4), &lightViewMatrixBuffershading.buffer, &lightViewMatrixBuffershading.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &inverseFinalLightMatrix);
 
 	//Create lights storage buffers to pass to the fragment shader
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _spotLights.size() * sizeof(vk::wrappers::SpotLight), &_spotLightBuffer, &_spotLightBufferMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, *_spotLights.data());
@@ -549,15 +540,15 @@ void VulkanDeferredApplication::SetUpUniformBuffers()
 		if (i == 0)
 		{
 			*modelMat = glm::mat4(1.0f);
-			*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, 0.0f, 0.0f));
-			*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			*modelMat = glm::scale(*modelMat, glm::vec3(2.0f, 2.0f, 2.0f));
+			*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, -1.0f, 0.0f));
+			//*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			*modelMat = glm::scale(*modelMat, glm::vec3(0.05f, 0.05f, 0.05f));
 		}
 		else if (i == 1)
 		{ 
-			*modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			*modelMat = glm::rotate(*modelMat, glm::radians(-180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-			*modelMat = glm::scale(*modelMat, glm::vec3(4.0f, 4.0f, 4.0f));
+			*modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+			*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+			*modelMat = glm::scale(*modelMat, glm::vec3(8.0f, 8.0f, 8.0f));
 		}
 	}
 	
@@ -584,8 +575,8 @@ void VulkanDeferredApplication::SetUpUniformBuffers()
 void VulkanDeferredApplication::CreateShadowRenderPass()
 {
 
-	shadowFrameBuffer.width = _swapChainExtent.width;
-	shadowFrameBuffer.height = _swapChainExtent.height;
+	shadowFrameBuffer.width = 2048;
+	shadowFrameBuffer.height = 2048;
 
 	//Find Depth Format
 	VkFormat DepthFormat;
@@ -603,7 +594,7 @@ void VulkanDeferredApplication::CreateShadowRenderPass()
 		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 	}
 
 
@@ -612,7 +603,7 @@ void VulkanDeferredApplication::CreateShadowRenderPass()
 
 	VkAttachmentReference depthReference = {};
 	depthReference.attachment = 0;
-	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
 	VkSubpassDescription subpass = {};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -783,8 +774,8 @@ void VulkanDeferredApplication::CreateGBuffer()
 	//Create color sampler to sample from the color attachments.
 	VkSamplerCreateInfo samplerCreateInfo = {};
 	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerCreateInfo.magFilter = VK_FILTER_NEAREST;
-	samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
+	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
 	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samplerCreateInfo.addressModeV = samplerCreateInfo.addressModeU;
@@ -852,11 +843,11 @@ void VulkanDeferredApplication::_CreateDescriptorSets()
 
 		VkDescriptorImageInfo shadowDescriptorInfo = {};
 		shadowDescriptorInfo.sampler = shadowSampler;
-		shadowDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		shadowDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 		shadowDescriptorInfo.imageView = shadowFrameBuffer.depth.view;
 
 		VkDescriptorBufferInfo lightViewMatrixDescriptorInfo = {};
-		lightViewMatrixDescriptorInfo.buffer = lightViewMatrixBuffer.buffer;
+		lightViewMatrixDescriptorInfo.buffer = lightViewMatrixBuffershading.buffer;
 		lightViewMatrixDescriptorInfo.offset = 0;
 		lightViewMatrixDescriptorInfo.range = sizeof(glm::mat4);
 	
@@ -1286,6 +1277,8 @@ void VulkanDeferredApplication::CreateShadowPassCommandBuffers()
 	renderPassBeginInfo.renderPass = shadowFrameBuffer.renderPass;
 	renderPassBeginInfo.renderArea.extent.width = shadowFrameBuffer.width;
 	renderPassBeginInfo.renderArea.extent.height = shadowFrameBuffer.height;
+	renderPassBeginInfo.clearValueCount = 0;
+	renderPassBeginInfo.pClearValues = nullptr;
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassBeginInfo.pClearValues = clearValues.data();
 
@@ -1520,9 +1513,9 @@ void VulkanDeferredApplication::_CreateDescriptorPool()
 {
 	std::array<VkDescriptorPoolSize, 4> pool_sizes {};
 	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	pool_sizes[0].descriptorCount = static_cast<uint32_t>(11);
+	pool_sizes[0].descriptorCount = static_cast<uint32_t>(20);
 	pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	pool_sizes[1].descriptorCount = static_cast<uint32_t>(11);
+	pool_sizes[1].descriptorCount = static_cast<uint32_t>(20);
 	pool_sizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	pool_sizes[2].descriptorCount = static_cast<uint32_t>(_swapChainImages.size() * 2);
 	pool_sizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -1538,9 +1531,9 @@ void VulkanDeferredApplication::_CreateDescriptorPool()
 
 	
 	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	pool_sizes[0].descriptorCount = static_cast<uint32_t>(11);
+	pool_sizes[0].descriptorCount = static_cast<uint32_t>(20);
 	pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	pool_sizes[1].descriptorCount = static_cast<uint32_t>(11);
+	pool_sizes[1].descriptorCount = static_cast<uint32_t>(20);
 	pool_sizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	pool_sizes[2].descriptorCount = static_cast<uint32_t>(11);
 	pool_sizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;

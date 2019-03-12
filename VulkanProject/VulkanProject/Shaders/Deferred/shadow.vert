@@ -26,5 +26,6 @@ layout (binding = 2) uniform LightViewMatrix {
 void main()
 {
 	gl_Position = lightViewMatrix.lightMatrix * uboModelMatrix.model * vec4(inPos.xyz, 1.0f);
+	
 }
 
