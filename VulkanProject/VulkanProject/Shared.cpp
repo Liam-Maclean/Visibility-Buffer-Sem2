@@ -132,3 +132,58 @@ VkShaderModule vk::tools::loadShader(const char *fileName, VkDevice device)
 	}
 }
 
+//void vk::tools::_CopyBuffer(Renderer * renderer, VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+//{
+//	VkCommandBuffer commandBuffer = commandBuffer;
+//
+//	VkBufferCopy copyRegion = {};
+//	copyRegion.size = size;
+//	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+//
+//	_EndSingleTimeCommands(commandBuffer);
+//}
+//
+//void vk::tools::_CreateBuffer(Renderer * renderer, VkCommandBuffer commandBuffer, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer & buffer, VkDeviceMemory & bufferMemory)
+//{
+//	
+//	VkBufferCreateInfo buffer_create_info = {};
+//	buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+//	buffer_create_info.size = size;
+//	buffer_create_info.usage = usage;
+//	buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//
+//	vk::tools::ErrorCheck(vkCreateBuffer(renderer->GetVulkanDevice(), &buffer_create_info, nullptr, &buffer));
+//
+//	VkMemoryRequirements mem_requirements;
+//	vkGetBufferMemoryRequirements(renderer->GetVulkanDevice(), buffer, &mem_requirements);
+//
+//	VkMemoryAllocateInfo memory_allocate_info = {};
+//	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+//	memory_allocate_info.allocationSize = mem_requirements.size;
+//	memory_allocate_info.memoryTypeIndex = renderer->_GetMemoryType(mem_requirements.memoryTypeBits, properties);
+//
+//	vk::tools::ErrorCheck(vkAllocateMemory(renderer->GetVulkanDevice(), &memory_allocate_info, nullptr, &bufferMemory));
+//
+//	vkBindBufferMemory(renderer->GetVulkanDevice(), buffer, bufferMemory, 0);
+//}
+//
+//void vk::tools::_CreateShaderBuffer(Renderer * renderer, VkCommandBuffer commandBuffer, VkDevice device, VkDeviceSize size, VkBuffer * buffer, VkDeviceMemory * memory, VkBufferUsageFlagBits bufferStage, void * data)
+//{
+//	VkDeviceSize bufferSize = size;
+//
+//	VkBuffer stagingBuffer;
+//	VkDeviceMemory stagingBufferMemory;
+//	vk::tools::_CreateBuffer(renderer, commandBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+//
+//	void* tempData;
+//	vkMapMemory(renderer->GetVulkanDevice(), stagingBufferMemory, 0, bufferSize, 0, &tempData);
+//	memcpy(tempData, data, (size_t)bufferSize);
+//	vkUnmapMemory(renderer->GetVulkanDevice(), stagingBufferMemory);
+//
+//	vk::tools::_CreateBuffer(renderer, commandBuffer, bufferSize, bufferStage, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, *buffer, *memory);
+//	_CopyBuffer(renderer, commandBuffer, stagingBuffer, *buffer, bufferSize);
+//
+//	vkDestroyBuffer(renderer->GetVulkanDevice(), stagingBuffer, nullptr);
+//	vkFreeMemory(renderer->GetVulkanDevice(), stagingBufferMemory, nullptr);
+//}
+

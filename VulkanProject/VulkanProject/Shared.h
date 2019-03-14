@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include "Renderer.h"
 #include <assert.h>
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -92,6 +93,10 @@ namespace vk
 			glm::vec4 position;
 			glm::vec4 diffuse;
 			glm::vec4 specular;
+
+			float constant;
+			float linear;
+			float quadratic;
 		};
 
 		struct DirectionalLight
@@ -133,5 +138,8 @@ namespace vk
 		void ErrorCheck(VkResult result);
 		std::vector<char> ReadShaderFile(const std::string& filename);
 		VkShaderModule loadShader(const char * fileName, VkDevice device);
+		//void _CopyBuffer(Renderer* renderer, VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+		//void _CreateBuffer(Renderer* renderer, VkCommandBuffer commandBuffer, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory);
+		//void _CreateShaderBuffer(Renderer* renderer, VkCommandBuffer commandBuffer, VkDevice device, VkDeviceSize size, VkBuffer * buffer, VkDeviceMemory* memory, VkBufferUsageFlagBits bufferStage, void* data);
 	}
 }

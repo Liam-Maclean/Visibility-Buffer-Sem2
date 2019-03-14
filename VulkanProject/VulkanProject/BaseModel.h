@@ -28,6 +28,8 @@ public:
 
 	//Create model function (where vertices and indices are created)
 	virtual void CreateModel();
+	void CreateBuffers();
+
 
 	//Getters
 	size_t GetVertexCount() { return vertices.size(); };

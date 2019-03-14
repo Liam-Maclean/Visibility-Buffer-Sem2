@@ -394,8 +394,14 @@ void VulkanDeferredApplication::UpdateUniformBuffer(uint32_t currentImage)
 	vkMapMemory(_renderer->GetVulkanDevice(), offScreenVertexUBOBuffer.memory, 0, sizeof(uboVS), 0, &data);
 	memcpy(data, &offScreenUniformVSData, sizeof(uboVS));
 	vkUnmapMemory(_renderer->GetVulkanDevice(), offScreenVertexUBOBuffer.memory);
-
 	offScreenVertexUBOBuffer.SetUpDescriptorSet();
+
+
+	void* data2;
+	vkMapMemory(_renderer->GetVulkanDevice(), cameraEyeBuffer.memory, 0, sizeof(glm::vec4), 0, &data2);
+	memcpy(data2, &camera->GetCameraEye(), sizeof(glm::vec4));
+	vkUnmapMemory(_renderer->GetVulkanDevice(), cameraEyeBuffer.memory);
+	cameraEyeBuffer.SetUpDescriptorSet();
 }
 
 //loads a shader file
@@ -419,21 +425,36 @@ void VulkanDeferredApplication::_CreateGeometry()
 	screenTarget->GetIndexBuffer()->SetUpDescriptorSet();
 	screenTarget->GetVertexBuffer()->SetUpDescriptorSet();
 
-	//planeMesh = new PlaneMesh();
-	//_CreateShaderBuffer(_renderer->GetVulkanDevice(), planeMesh->GetVertexBufferSize(), &planeMesh->GetVertexBuffer()->buffer, &planeMesh->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, planeMesh->GetVertexData());
-	//_CreateShaderBuffer(_renderer->GetVulkanDevice(), planeMesh->GetIndexBufferSize(), &planeMesh->GetIndexBuffer()->buffer, &planeMesh->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, planeMesh->GetIndexData());
-	//planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
-	//planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
+	planeMesh = new PlaneMesh();
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), planeMesh->GetVertexBufferSize(), &planeMesh->GetVertexBuffer()->buffer, &planeMesh->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, planeMesh->GetVertexData());
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), planeMesh->GetIndexBufferSize(), &planeMesh->GetIndexBuffer()->buffer, &planeMesh->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, planeMesh->GetIndexData());
+	planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
+	planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
 
-	houseModel = new ImportedModel("Textures/Sponza/sponza.obj", false);
+	houseModel = new ImportedModel("Textures/sphere.obj", true);
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
 	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
 	houseModel->GetVertexBuffer()->SetUpDescriptorSet();
 
+	//Models
+	_models.push_back(new vk::wrappers::Model());
+	_models.push_back(new vk::wrappers::Model());
+	_models[0]->model = houseModel;
+	_models[0]->texture.image = _CreateTextureImage("Textures/DefaultTexture.jpg");
+	_models[0]->texture.imageView = _CreateTextureImageView(_models[0]->texture.image);
+	_models[0]->texture.sampler = _CreateTextureSampler();
+	_models[1]->model = planeMesh;
+	_models[1]->texture.image = _CreateTextureImage("Textures/BrickTexture.jpg");
+	_models[1]->texture.imageView = _CreateTextureImageView(_models[1]->texture.image);
+	_models[1]->texture.sampler = _CreateTextureSampler();
+
+
+
+
+
 	
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(glm::vec4), &cameraEyeBuffer.buffer, &cameraEyeBuffer.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &cameraEye);
-	cameraEyeBuffer.SetUpDescriptorSet();
+	
 
 
 	//*Lighting*
@@ -442,16 +463,29 @@ void VulkanDeferredApplication::_CreateGeometry()
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 
-	_directionalLights[0]->diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f); 
+	_directionalLights[0]->diffuse = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 	_directionalLights[0]->direction = glm::vec4(1.0f, 1.0f, 2.0f, 1.0f);
-	_directionalLights[0]->specular = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	_directionalLights[0]->specular = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
 
-	//testLightViewMatrix = glm::ortho(glm::radians(100.0f), 1.0f, 1.0f, 64.0f);
+	_pointLights[0]->diffuse = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	_pointLights[0]->position = glm::vec4(2.0f, 2.0f, 4.0f,1.0f);
+	_pointLights[0]->specular = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+	_pointLights[0]->constant = 1.0f;
+	_pointLights[0]->linear = 0.09f;
+	_pointLights[0]->quadratic = 0.032f;
+
+	//Create lights storage buffers to pass to the fragment shader
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _spotLights.size() * sizeof(vk::wrappers::SpotLight), &_spotLightBuffer, &_spotLightBufferMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, *_spotLights.data());
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _pointLights.size() * sizeof(vk::wrappers::PointLight), &_pointLightBuffer, &_pointLightBufferMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, *_pointLights.data());
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _directionalLights.size() * sizeof(vk::wrappers::DirectionalLight), &_directionalLightBuffer, &_directionalLightBufferMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, *_directionalLights.data());
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(glm::vec4), &cameraEyeBuffer.buffer, &cameraEyeBuffer.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &camera->GetCameraEye());
+	cameraEyeBuffer.SetUpDescriptorSet();
+
+
+
+	//Shadow matrices
 	glm::mat4 testLightViewMatrix = glm::mat4(1.0f);
 	testLightViewMatrix = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, -10.0f, 10.0f);
-	//lightView = glm::lookAt(glm::vec3 (1.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-
 	glm::mat4 perspectView = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 60.0f);
 	lightView = glm::mat4(1.0f);
 	lightView = glm::lookAt(glm::vec3(1.0f, 1.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -461,21 +495,7 @@ void VulkanDeferredApplication::_CreateGeometry()
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(glm::mat4), &lightViewMatrixBuffer.buffer, &lightViewMatrixBuffer.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &finalLightMatrix);
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(glm::mat4), &lightViewMatrixBuffershading.buffer, &lightViewMatrixBuffershading.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &inverseFinalLightMatrix);
 
-	//Create lights storage buffers to pass to the fragment shader
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _spotLights.size() * sizeof(vk::wrappers::SpotLight), &_spotLightBuffer, &_spotLightBufferMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, *_spotLights.data());
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _pointLights.size() * sizeof(vk::wrappers::PointLight), &_pointLightBuffer, &_pointLightBufferMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, *_pointLights.data());
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _directionalLights.size() * sizeof(vk::wrappers::DirectionalLight), &_directionalLightBuffer, &_directionalLightBufferMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, *_directionalLights.data());
 
-	_models.push_back(new vk::wrappers::Model());
-	//_models.push_back(new vk::wrappers::Model());
-	_models[0]->model = houseModel;
-	_models[0]->texture.image = _CreateTextureImage("Textures/DefaultTexture.jpg");
-	_models[0]->texture.imageView = _CreateTextureImageView(_models[0]->texture.image);
-	_models[0]->texture.sampler = _CreateTextureSampler();
-	//_models[1]->model = planeMesh;
-	//_models[1]->texture.image = _CreateTextureImage("Textures/BrickTexture.jpg");
-	//_models[1]->texture.imageView = _CreateTextureImageView(_models[1]->texture.image);
-	//_models[1]->texture.sampler = _CreateTextureSampler();
 }
 
 //Creates a render pass
@@ -540,7 +560,7 @@ void VulkanDeferredApplication::SetUpUniformBuffers()
 		if (i == 0)
 		{
 			*modelMat = glm::mat4(1.0f);
-			*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, -1.0f, 0.0f));
+			*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, 2.0f, 0.0f));
 			//*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 			*modelMat = glm::scale(*modelMat, glm::vec3(0.05f, 0.05f, 0.05f));
 		}
@@ -1240,6 +1260,7 @@ void VulkanDeferredApplication::_CreateDescriptorSetLayout()
 	
 }
 
+//Runs the command buffer for the shadow render pass
 void VulkanDeferredApplication::CreateShadowPassCommandBuffers()
 {
 	//if the offscreen cmd buffer hasn't been initialised.
