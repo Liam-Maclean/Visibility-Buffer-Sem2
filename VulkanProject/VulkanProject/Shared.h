@@ -1,7 +1,6 @@
 #pragma once
 
 #include <iostream>
-#include "Renderer.h"
 #include <assert.h>
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -17,9 +16,12 @@ namespace vk
 		//Wrapper class for buffer holding
 		struct Buffer
 		{
+			VkDevice device;
 			VkBuffer buffer;
 			VkDeviceMemory memory;
 			VkDescriptorBufferInfo descriptor;
+			void* mapped = nullptr;
+
 
 			void SetUpDescriptorSet()
 			{
@@ -27,6 +29,43 @@ namespace vk
 				descriptor.buffer = buffer;
 				descriptor.range = VK_WHOLE_SIZE;
 			}
+
+			VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0)
+			{
+				return vkMapMemory(device, memory, offset, size, 0, &mapped);
+			}
+
+			void unmap()
+			{
+				if (mapped)
+				{
+					vkUnmapMemory(device, memory);
+					mapped = nullptr;
+				}
+			}
+
+			VkResult flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0)
+			{
+				VkMappedMemoryRange mappedRange = {};
+				mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+				mappedRange.memory = memory;
+				mappedRange.offset = offset;
+				mappedRange.size = size;
+				return vkFlushMappedMemoryRanges(device, 1, &mappedRange);
+			}
+
+			void destroy()
+			{
+				if (buffer)
+				{
+					vkDestroyBuffer(device, buffer, nullptr);
+				}
+				if (memory)
+				{
+					vkFreeMemory(device, memory, nullptr);
+				}
+			}
+
 		};
 
 		//FrameBuffer attachment Wrapper

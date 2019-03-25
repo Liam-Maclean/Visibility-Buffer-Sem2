@@ -4,6 +4,7 @@
 #include <vector>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <Shared.h>
 #include <array>
 //Queue family indices (checks if the queue indices are all handled)
 struct QueueFamilyIndices {
@@ -33,7 +34,7 @@ public:
 	QueueFamilyIndices _FindQueueFamilies(VkPhysicalDevice device);
 	bool _IsDeviceSuitable(VkPhysicalDevice device);
 	bool _CheckDeviceExtentionSupport(VkPhysicalDevice device);
-
+	void _CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, vk::wrappers::Buffer *buffer, void*data = nullptr);
 	//==Debug==
 	void _SetupDebug();
 	void _InitDebug();

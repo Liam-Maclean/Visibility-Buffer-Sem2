@@ -6,7 +6,7 @@
 #include "Plane.h"
 #include "PlaneMesh.h"
 #include "ImportedModel.h"
-
+#include "ImGUIInterface.h"
 #define TEX_DIMENSIONS 2048;
 
 class VulkanDeferredApplication : public VulkanWindow
@@ -52,6 +52,7 @@ public:
 	void InitialiseVulkanApplication();
 	void Update() override;
 	void DrawFrame() override;
+	void prepareImGui();
 	void _CreateGraphicsPipeline() override;
 	void _CreateShadowPipeline();
 	void UpdateUniformBuffer(uint32_t currentImage);
@@ -69,6 +70,9 @@ public:
 	void CreateGBuffer();
 	void CreateShadowPassCommandBuffers();
 	void CreateDeferredCommandBuffers();
+
+
+	//ImGUIInterface *imGui = nullptr;
 
 	vertice vertices;
 	uboVS offScreenUniformVSData;

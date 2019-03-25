@@ -19,6 +19,18 @@
     <Filter Include="Source Files\Primitives">
       <UniqueIdentifier>{902435de-4bc3-4c35-81a9-c89caf709545}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\ImGui">
+      <UniqueIdentifier>{497fd963-7ec8-4079-a0cd-30c02f9e77ae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ImGui">
+      <UniqueIdentifier>{38456419-438f-46ce-b560-209165202200}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Deferred">
+      <UniqueIdentifier>{90b59eb5-b64b-42c2-ab6b-b7ba1520d897}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Visibility Buffer">
+      <UniqueIdentifier>{72f92ae3-cf76-41b8-983d-93e02b376ff2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Renderer.cpp">
@@ -57,6 +69,18 @@
     <ClCompile Include="ImGUIInterface.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="imgui.cpp">
+      <Filter>Source Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_demo.cpp">
+      <Filter>Source Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_draw.cpp">
+      <Filter>Source Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_widgets.cpp">
+      <Filter>Source Files\ImGui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Renderer.h">
@@ -92,5 +116,46 @@
     <ClInclude Include="ImGUIInterface.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="imconfig.h">
+      <Filter>Header Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui.h">
+      <Filter>Header Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_internal.h">
+      <Filter>Header Files\ImGui</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shaders\Deferred\deferred.frag">
+      <Filter>Resource Files\Deferred</Filter>
+    </None>
+    <None Include="Shaders\Deferred\deferred.vert">
+      <Filter>Resource Files\Deferred</Filter>
+    </None>
+    <None Include="Shaders\Deferred\mrt.frag">
+      <Filter>Resource Files\Deferred</Filter>
+    </None>
+    <None Include="Shaders\Deferred\mrt.vert">
+      <Filter>Resource Files\Deferred</Filter>
+    </None>
+    <None Include="Shaders\Deferred\shadow.frag">
+      <Filter>Resource Files\Deferred</Filter>
+    </None>
+    <None Include="Shaders\Deferred\shadow.vert">
+      <Filter>Resource Files\Deferred</Filter>
+    </None>
+    <None Include="Shaders\VisibilityBuffer\VBID.frag">
+      <Filter>Resource Files\Visibility Buffer</Filter>
+    </None>
+    <None Include="Shaders\VisibilityBuffer\VBID.vert">
+      <Filter>Resource Files\Visibility Buffer</Filter>
+    </None>
+    <None Include="Shaders\VisibilityBuffer\VBShade.frag">
+      <Filter>Resource Files\Visibility Buffer</Filter>
+    </None>
+    <None Include="Shaders\VisibilityBuffer\VBShade.vert">
+      <Filter>Resource Files\Visibility Buffer</Filter>
+    </None>
   </ItemGroup>
 </Project>

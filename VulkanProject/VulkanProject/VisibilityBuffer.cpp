@@ -48,7 +48,7 @@ void VisibilityBuffer::_CreateGeometry()
 	planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
 	planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
 
-	houseModel = new ImportedModel("Textures/Sponza/sponza.obj", false);
+	houseModel = new ImportedModel("Textures/cube.obj", true);
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
 	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
@@ -90,10 +90,11 @@ void VisibilityBuffer::_CreateGeometry()
 
 	_models.push_back(new vk::wrappers::Model());
 	//_models.push_back(new vk::wrappers::Model());
-	_models[0]->model = houseModel;
+	_models[0]->model = planeMesh;
 	_models[0]->texture.image = _CreateTextureImage("Textures/DefaultTexture.jpg");
 	_models[0]->texture.imageView = _CreateTextureImageView(_models[0]->texture.image);
 	_models[0]->texture.sampler = _CreateTextureSampler();
+	_models[0]->texture.SetUpDescriptor();
 	//_models[1]->model = planeMesh;
 	//_models[1]->texture.image = _CreateTextureImage("Textures/BrickTexture.jpg");
 	//_models[1]->texture.imageView = _CreateTextureImageView(_models[1]->texture.image);
@@ -559,7 +560,7 @@ void VisibilityBuffer::_CreateCommandBuffers()
 	render_pass_begin_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	render_pass_begin_info.pClearValues = clearValues.data();
 	//Use swapchain draw command buffers to draw the scene
-	for (size_t i = 0; i < _drawCommandBuffers.size(); ++i)
+	for (size_t i = 0; i < _drawCommandBuffers.size(); i++)
 	{
 		render_pass_begin_info.framebuffer = _swapChainFramebuffers[i];
 
@@ -859,7 +860,7 @@ void VisibilityBuffer::Update()
 	while (!glfwWindowShouldClose(_window))
 	{
 		glfwPollEvents();
-		camera->HandleInput(_window);
+		//camera->HandleInput(_window);
 		VisibilityBuffer::DrawFrame();
 	}
 

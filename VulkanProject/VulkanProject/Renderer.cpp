@@ -90,6 +90,47 @@ void Renderer::_DeInitInstance()
 
 }
 
+//Method for creating a VkBuffer
+void Renderer::_CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, vk::wrappers::Buffer *buffer, void*data)
+{
+	buffer->device = _device;
+
+	VkBufferCreateInfo buffer_create_info = {};
+	buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	buffer_create_info.size = size;
+	buffer_create_info.usage = usage;
+	buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	vk::tools::ErrorCheck(vkCreateBuffer(_device, &buffer_create_info, nullptr, &buffer->buffer));
+
+	VkMemoryRequirements mem_requirements;
+	vkGetBufferMemoryRequirements(_device, buffer->buffer, &mem_requirements);
+
+	VkMemoryAllocateInfo memory_allocate_info = {};
+	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memory_allocate_info.allocationSize = mem_requirements.size;
+	memory_allocate_info.memoryTypeIndex = _GetMemoryType(mem_requirements.memoryTypeBits, properties);
+
+	vk::tools::ErrorCheck(vkAllocateMemory(_device, &memory_allocate_info, nullptr, &buffer->memory));
+
+	// If a pointer to the buffer data has been passed, map the buffer and copy over the data
+	if (data != nullptr)
+	{
+		vk::tools::ErrorCheck(buffer->map());
+		memcpy(buffer->mapped, data, size);
+		if ((properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
+			buffer->flush();
+
+		buffer->unmap();
+	}
+
+
+
+	vkBindBufferMemory(_device, buffer->buffer, buffer->memory, 0);
+	
+
+}
+
 //Method to check if a device is suitable for 3D application (graphics bit and presentation bit)
 bool Renderer::_IsDeviceSuitable(VkPhysicalDevice device)
 {

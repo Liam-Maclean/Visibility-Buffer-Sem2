@@ -1,26 +1,28 @@
 #pragma once
-#include <imgui.h>
+#include "imgui.h"
 #include <Renderer.h>
 #include <Shared.h>
 
-struct UISettings {
-	bool displayModels = true;
-	std::array<float, 50> frameTimes{};
-	float frameTimeMin = 9999.0f, frameTimeMax = 0.0f;
-}uiSettings;
 
 class ImGUIInterface
 {
 public:
+
+	struct UISettings {
+		bool displayModels = true;
+		std::array<float, 50> frameTimes{};
+		float frameTimeMin = 9999.0f, frameTimeMax = 0.0f;
+	}uiSettings;
+
 	ImGUIInterface(Renderer* renderer);
 	~ImGUIInterface();
 
 	void init(float width, float height);
-	void initResources(VkRenderPass renderPass, VkQueue copyQueue);
+	void initResources(VkRenderPass renderPass);
 	void newFrame(bool updateFrameGraph);
 	void updateBuffers();
 	void DrawFrame(VkCommandBuffer commandBuffer);
-
+	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage);
 	struct PushConstBlock
 	{
 		glm::vec2 scale;

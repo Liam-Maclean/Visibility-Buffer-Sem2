@@ -16,6 +16,7 @@ void VulkanDeferredApplication::InitialiseVulkanApplication()
 	VulkanDeferredApplication::_CreateDescriptorSetLayout();
 	VulkanDeferredApplication::_CreateVertexDescriptions();
 	VulkanDeferredApplication::_CreateGraphicsPipeline();
+	VulkanDeferredApplication::prepareImGui();
 	VulkanDeferredApplication::_CreateDescriptorPool();
 	VulkanDeferredApplication::_CreateDescriptorSets();
 	VulkanDeferredApplication::CreateShadowPassCommandBuffers();
@@ -43,7 +44,13 @@ void VulkanDeferredApplication::Update()
 		glfwPollEvents();
 		camera->HandleInput(_window);
 		VulkanDeferredApplication::DrawFrame();
-		
+
+		//// Update imGui
+		//ImGuiIO& io = ImGui::GetIO();
+		//double mousePosX, mousePosY;
+		//glfwGetCursorPos(_window, &mousePosX, &mousePosY);
+		//io.DisplaySize = ImVec2((float)_swapChainExtent.width, (float)_swapChainExtent.height);
+		//io.MousePos = ImVec2(mousePosX, mousePosY);
 		//if escape key is pressed close window
 		if (glfwGetKey(_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		{
@@ -139,6 +146,13 @@ void VulkanDeferredApplication::DrawFrame()
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
 	vkQueueWaitIdle(_renderer->GetVulkanPresentQueue());
+}
+
+void VulkanDeferredApplication::prepareImGui()
+{
+	//imGui = new ImGUIInterface(_renderer);
+	//imGui->init((float)_swapChainExtent.width, (float)_swapChainExtent.height);
+	//imGui->initResources(_renderPass);
 }
 
 //Creates the graphics pipelines for the deferred renderer (offscreen and fullscreen pipelines)
@@ -463,8 +477,8 @@ void VulkanDeferredApplication::_CreateGeometry()
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 
-	_directionalLights[0]->diffuse = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-	_directionalLights[0]->direction = glm::vec4(1.0f, 1.0f, 2.0f, 1.0f);
+	_directionalLights[0]->diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	_directionalLights[0]->direction = glm::vec4(2.0f, 2.0f, 2.0f, 1.0f);
 	_directionalLights[0]->specular = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
 
 	_pointLights[0]->diffuse = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
@@ -485,10 +499,10 @@ void VulkanDeferredApplication::_CreateGeometry()
 
 	//Shadow matrices
 	glm::mat4 testLightViewMatrix = glm::mat4(1.0f);
-	testLightViewMatrix = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, -10.0f, 10.0f);
+	testLightViewMatrix = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, -20.0f, 20.0f);
 	glm::mat4 perspectView = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 60.0f);
 	lightView = glm::mat4(1.0f);
-	lightView = glm::lookAt(glm::vec3(1.0f, 1.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	lightView = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 	finalLightMatrix = testLightViewMatrix * lightView * glm::mat4(1.0f);
 	inverseFinalLightMatrix =  finalLightMatrix;
@@ -1373,9 +1387,9 @@ void VulkanDeferredApplication::CreateDeferredCommandBuffers()
 
 	//Clear values for attachments in fragment shader
 	std::array<VkClearValue, 4> clearValues;
-	clearValues[0].color = { {  0.0f,0.0f,0.0f,0.0f } };
-	clearValues[1].color = { {  0.0f,0.0f,0.0f,0.0f } };
-	clearValues[2].color = { {  0.0f,0.0f,0.0f,0.0f } };
+	clearValues[0].color = { {  1.0f,0.5f,1.0f,0.0f } };
+	clearValues[1].color = { {  1.0f,0.5f,1.0f,0.0f } };
+	clearValues[2].color = { {  1.0f,0.5f,1.0f,0.0f } };
 	clearValues[3].depthStencil = { 1.0f, 0 };
 
 	//begin to set up the information for the render pass
@@ -1457,6 +1471,10 @@ void VulkanDeferredApplication::_CreateCommandBuffers()
 	render_pass_begin_info.renderArea.extent.height = _swapChainExtent.height;
 	render_pass_begin_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	render_pass_begin_info.pClearValues = clearValues.data();
+
+	//imGui->newFrame(true);
+	//imGui->updateBuffers();
+
 	//Use swapchain draw command buffers to draw the scene
 	for (size_t i = 0; i < _drawCommandBuffers.size(); ++i)
 	{
@@ -1489,11 +1507,17 @@ void VulkanDeferredApplication::_CreateCommandBuffers()
 			vkCmdBindIndexBuffer(_drawCommandBuffers[i], screenTarget->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
 			vkCmdDrawIndexed(_drawCommandBuffers[i], screenTarget->GetIndexCount(), 1, 0, 0, 1);
 		
+
+			//imGui->DrawFrame(_drawCommandBuffers[i]);
+
 		vkCmdEndRenderPass(_drawCommandBuffers[i]);
 		//vkCmdEndRenderPass(_drawCommandBuffers[i]);
 
 		vk::tools::ErrorCheck(vkEndCommandBuffer(_drawCommandBuffers[i]));
 	}
+
+
+
 }
 
 //method to create vertex descriptions for the buffers 
