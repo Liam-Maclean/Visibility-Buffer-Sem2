@@ -343,10 +343,11 @@ void Renderer::_SetupDebug()
 		0;
 
 	//pushback the layer we want to use as our validation layers for the instance
-	_instance_layers.push_back("VK_LAYER_RENDERDOC_Capture");
+	//_instance_layers.push_back("VK_LAYER_RENDERDOC_Capture");
 	_instance_layers.push_back("VK_LAYER_LUNARG_standard_validation");
-	_instance_layers.push_back("VK_LAYER_NV_optimus");
-	_instance_layers.push_back("VK_LAYER_NV_nsight");
+	//_instance_layers.push_back("VK_LAYER_NV_optimus");
+	//_instance_layers.push_back("VK_LAYER_NV_nomad");
+	//_instance_layers.push_back("VK_LAYER_NV_nsight");
 	//pushback the instance extention debug reports
 	_instance_extentions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 }

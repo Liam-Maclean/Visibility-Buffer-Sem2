@@ -54,6 +54,9 @@
     <ClCompile Include="ImportedModel.cpp">
       <Filter>Source Files\Primitives</Filter>
     </ClCompile>
+    <ClCompile Include="ImGUIInterface.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Renderer.h">
@@ -85,6 +88,9 @@
     </ClInclude>
     <ClInclude Include="ImportedModel.h">
       <Filter>Header Files\Primitives</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGUIInterface.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

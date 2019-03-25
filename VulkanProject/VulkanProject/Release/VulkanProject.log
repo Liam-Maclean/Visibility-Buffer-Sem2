@@ -1,9 +1,9 @@
-﻿  VulkanDeferredApplication.cpp
-c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(534): warning C4244: 'initializing': conversion from 'const VkDeviceSize' to 'size_t', possible loss of data
-c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(978): warning C4018: '<': signed/unsigned mismatch
+﻿  Renderer.cpp
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\renderer.cpp(45): warning C4018: '<': signed/unsigned mismatch
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\renderer.cpp(53): warning C4018: '<': signed/unsigned mismatch
   Generating code
-  1 of 3727 functions (<0.1%) were compiled, the rest were copied from previous compilation.
+  Finished generating code
+  4 of 3727 functions ( 0.1%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
     1 functions had inline decision re-evaluated but remain unchanged
-  Finished generating code
   VulkanProject.vcxproj -> C:\Users\Liam Maclean\Documents\GitHub\Visibility-Buffer-Sem2\VulkanProject\Release\VulkanProject.exe

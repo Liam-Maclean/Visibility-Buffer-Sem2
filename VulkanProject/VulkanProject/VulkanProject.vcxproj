@@ -70,12 +70,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(ProjectDir)GLFW\include;$(ProjectDir)glm\glm;$(ProjectDir)TinyObjLoader;C:\VulkanSDK\1.1.73.0\Include;$(ProjectDir);$(ProjectDir)GLFW;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)GLFW\include;$(ProjectDir)glm\glm;$(ProjectDir)TinyObjLoader;C:\VulkanSDK\1.1.73.0\Include;$(ProjectDir);$(ProjectDir)GLFW;$(ProjectDir)imgui;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)GLFW\lib-vc2015;$(ProjectDir)glm\glm;$(ProjectDir)TinyObjLoader;C:\VulkanSDK\1.1.73.0\Lib32;$(LibraryPath)</LibraryPath>
     <ReferencePath>$(ProjectDir)Shaders;$(ProjectDir)Textures;$(ReferencePath)</ReferencePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(ProjectDir)GLFW\include;$(ProjectDir)glm\glm;$(ProjectDir)TinyObjLoader;C:\VulkanSDK\1.1.73.0\Include;$(ProjectDir);$(ProjectDir)GLFW;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)GLFW\include;$(ProjectDir)glm\glm;$(ProjectDir)TinyObjLoader;C:\VulkanSDK\1.1.73.0\Include;$(ProjectDir);$(ProjectDir)GLFW;$(ProjectDir)imgui;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)GLFW\lib-vc2015;$(ProjectDir)glm\glm;$(ProjectDir)TinyObjLoader;C:\VulkanSDK\1.1.73.0\Lib32;$(LibraryPath)</LibraryPath>
     <ReferencePath>$(ProjectDir)Shaders;$(ProjectDir)Textures;$(ReferencePath)</ReferencePath>
   </PropertyGroup>
@@ -150,6 +150,7 @@
   <ItemGroup>
     <ClCompile Include="BaseModel.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="ImGUIInterface.cpp" />
     <ClCompile Include="ImportedModel.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Plane.cpp" />
@@ -163,6 +164,7 @@
   <ItemGroup>
     <ClInclude Include="BaseModel.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="ImGUIInterface.h" />
     <ClInclude Include="ImportedModel.h" />
     <ClInclude Include="Plane.h" />
     <ClInclude Include="PlaneMesh.h" />

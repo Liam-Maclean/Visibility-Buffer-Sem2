@@ -16,6 +16,9 @@ struct pointLight
 	vec4 position;
 	vec4 diffuse;
 	vec4 specular;
+	float constant;
+	float linear;
+	float quadratic;
 };
 struct directionalLight
 {
@@ -54,7 +57,7 @@ layout (set = 0,binding = 7) uniform LightMatrix
 layout (set = 0,binding = 8) uniform Camera
 {
 	vec4 eye;
-} camera;
+}camera;
 
 //Out
 layout (location = 0) out vec4 outFragColor;
@@ -62,11 +65,11 @@ layout (location = 0) out vec4 outFragColor;
 //Main section of the shader
 void main() 
 {
+	float specularStrength = 0.1f;
 	//temporary variables
-	vec4 ambientColor = vec4(0.1f, 0.1f, 0.1f, 1.0f);
-	vec4 lightDir = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	float lightIntensity = 0.0f;
-	vec4 diffuseComponent = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	vec4 ambientColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	vec3 diffuseComponent = vec3(0.0f, 0.0f, 0.0f);
+	vec3 specular = vec3(0.0f, 0.0f, 0.0f);
 	
 	// Get G-Buffer values
 	vec4 fragPos = texture(samplerPosition, inUV);
@@ -75,25 +78,62 @@ void main()
 	float shadow = 1.0f;
 	
 	
-	//Set the lowest possible ambient color for the scene
-	diffuseComponent = ambientColor;
+	normal = normalize(normal);
+	
+	//DIRECTIONAL LIGHTS
+	//for(int i = 0; i < 1; i++)
+	//{
+	//	//Test lighting for a single directional light structure
+	//	lightDir = directionalLightData[i].direction;
+	//	
+	//	//get light intensity of the dot product of the normal and light direction
+	//	lightIntensity = max(dot(normal, lightDir.xyz), 0.0f);
+	//	
+	//	
+	//	
+	//	//if the pixel is lit
+	//	if (lightIntensity > 0.0f)
+	//	{
+	//		vec4 viewDir = normalize(camera.eye - fragPos);
+	//		vec3 reflectDir = reflect(-lightDir.xyz, normal);
+	//		float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+	//		vec3 specular = specularStrength * spec * lightColor;  
+	//		
+	//		
+	//		diffuseComponent += (directionalLightData[i].diffuse * lightIntensity);
+	//		//diffuseComponent = normalize(diffuseComponent);
+	//	}
+	//}
 	
 	for(int i = 0; i < 1; i++)
 	{
-		//Test lighting for a single directional light structure
-		lightDir = directionalLightData[i].direction;
+		vec3 lightDir = normalize(pointLightData[i].position.xyz - fragPos.xyz);
+		float diff = max(dot(normal, lightDir), 0.0);
 		
-		//get light intensity of the dot product of the normal and light direction
-		lightIntensity = max(dot(normal, lightDir.xyz), 0.0f);
-		
-		//if the pixel is lit
-		if (lightIntensity > 0.0f)
+		if (diff > 0.0f)
 		{
-			diffuseComponent += (directionalLightData[i].diffuse * lightIntensity);
-			//diffuseComponent = normalize(diffuseComponent);
+			//Diffuse
+			diffuseComponent = diff * pointLightData[i].diffuse.xyz;
+			
+			//Specular
+			float specularStrength = 0.5f;
+			
+			vec3 viewDir = normalize(camera.eye.xyz - fragPos.xyz);
+			vec3 reflectDir = reflect(-lightDir, normal.xyz);
+			float spec = pow(max(dot(viewDir, reflectDir), 0.0f),2);
+			specular = specularStrength * spec * pointLightData[i].specular.xyz;  
+			
+			//Attentuation
+			float dist = length(pointLightData[i].position.xyz - fragPos.xyz);
+			float attenuation = 1.0f / (pointLightData[i].constant + pointLightData[i].linear * dist + pointLightData[i].quadratic * (dist * dist));
+			
+			
+			specular *= attenuation;
+			diffuseComponent *= attenuation;
+			ambientColor *= attenuation;
 		}
 	}
-
+	
 	//for(int i = 0; i < 1; i++)
 	//{
 	//	vec4 fragPosInvertY = fragPos;
@@ -113,5 +153,6 @@ void main()
 	//	diffuseComponent *= shadow;
 	//}
 
-	outFragColor = diffuseComponent * albedo;	
+	vec3 outColor = (ambientColor.xyz + diffuseComponent.xyz + specular.xyz) * albedo.xyz;
+	outFragColor = vec4(outColor.xyz, 1.0);
 }
