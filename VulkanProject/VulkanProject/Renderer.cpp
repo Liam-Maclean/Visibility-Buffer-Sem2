@@ -16,11 +16,14 @@ PFN_vkDestroyDebugReportCallbackEXT	fvkDestroyDebugReportCallbackEXT = nullptr;
 //constructor
 Renderer::Renderer()
 {
+	
+
 	glfwInit();
 	_SetupDebug(); 
 	_InitInstance();
 	_InitDebug();
 	_InitDevice();
+	commandPool = createCommandPool();
 }
 
 //deconstructor
@@ -30,6 +33,18 @@ Renderer::~Renderer()
 	_DeInitDebug();
 	_DeInitInstance();
 }
+
+VkCommandPool Renderer::createCommandPool()
+{
+	VkCommandPoolCreateInfo cmdPoolInfo = {};
+	cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	cmdPoolInfo.queueFamilyIndex = _indices.graphicsFamily;
+	cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	VkCommandPool cmdPool;
+	vk::tools::ErrorCheck(vkCreateCommandPool(GetVulkanDevice(), &cmdPoolInfo, nullptr, &cmdPool));
+	return cmdPool;
+}
+
 
 //creates an instance of vulkan api
 void Renderer::_InitInstance()

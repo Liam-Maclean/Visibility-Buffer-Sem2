@@ -42,15 +42,21 @@ void VulkanDeferredApplication::Update()
 	{
 		//poll key presses, handle camera and draw the frame to the screen
 		glfwPollEvents();
-		camera->HandleInput(_window);
-		VulkanDeferredApplication::DrawFrame();
 
 		//// Update imGui
-		//ImGuiIO& io = ImGui::GetIO();
-		//double mousePosX, mousePosY;
-		//glfwGetCursorPos(_window, &mousePosX, &mousePosY);
-		//io.DisplaySize = ImVec2((float)_swapChainExtent.width, (float)_swapChainExtent.height);
-		//io.MousePos = ImVec2(mousePosX, mousePosY);
+		ImGuiIO& io = ImGui::GetIO();
+		double mousePosX, mousePosY;
+		glfwGetCursorPos(_window, &mousePosX, &mousePosY);
+
+		io.DisplaySize = ImVec2((float)_swapChainExtent.width, (float)_swapChainExtent.height);
+		io.MousePos = ImVec2(mousePosX, mousePosY);
+		io.MouseDown[0] = glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_LEFT) != 0;
+		io.MouseDown[1] = glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_LEFT) != 0;
+
+		//camera->HandleInput(_window);
+		VulkanDeferredApplication::_CreateCommandBuffers();
+		VulkanDeferredApplication::DrawFrame();
+
 		//if escape key is pressed close window
 		if (glfwGetKey(_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		{
@@ -150,9 +156,9 @@ void VulkanDeferredApplication::DrawFrame()
 
 void VulkanDeferredApplication::prepareImGui()
 {
-	//imGui = new ImGUIInterface(_renderer);
-	//imGui->init((float)_swapChainExtent.width, (float)_swapChainExtent.height);
-	//imGui->initResources(_renderPass);
+	imGui = new ImGUIInterface(_renderer);
+	imGui->init((float)_swapChainExtent.width, (float)_swapChainExtent.height);
+	imGui->initResources(_renderPass, _renderer->GetVulkanGraphicsQueue());
 }
 
 //Creates the graphics pipelines for the deferred renderer (offscreen and fullscreen pipelines)
@@ -1472,8 +1478,8 @@ void VulkanDeferredApplication::_CreateCommandBuffers()
 	render_pass_begin_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	render_pass_begin_info.pClearValues = clearValues.data();
 
-	//imGui->newFrame(true);
-	//imGui->updateBuffers();
+	imGui->newFrame(true);
+	imGui->updateBuffers();
 
 	//Use swapchain draw command buffers to draw the scene
 	for (size_t i = 0; i < _drawCommandBuffers.size(); ++i)
@@ -1508,7 +1514,7 @@ void VulkanDeferredApplication::_CreateCommandBuffers()
 			vkCmdDrawIndexed(_drawCommandBuffers[i], screenTarget->GetIndexCount(), 1, 0, 0, 1);
 		
 
-			//imGui->DrawFrame(_drawCommandBuffers[i]);
+			imGui->DrawFrame(_drawCommandBuffers[i]);
 
 		vkCmdEndRenderPass(_drawCommandBuffers[i]);
 		//vkCmdEndRenderPass(_drawCommandBuffers[i]);

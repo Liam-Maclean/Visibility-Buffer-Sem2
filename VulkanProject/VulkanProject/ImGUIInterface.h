@@ -18,7 +18,7 @@ public:
 	~ImGUIInterface();
 
 	void init(float width, float height);
-	void initResources(VkRenderPass renderPass);
+	void initResources(VkRenderPass renderPass, VkQueue copyQueue);
 	void newFrame(bool updateFrameGraph);
 	void updateBuffers();
 	void DrawFrame(VkCommandBuffer commandBuffer);

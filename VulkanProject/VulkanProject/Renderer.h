@@ -30,6 +30,7 @@ public:
 	//==Device==
 	void _InitDevice();
 	void _DeInitDevice();
+	VkCommandPool createCommandPool();
 	uint32_t _GetMemoryType(uint32_t memTypeBits, VkMemoryPropertyFlags propertyFlags, VkBool32 *memTypeFound = nullptr);
 	QueueFamilyIndices _FindQueueFamilies(VkPhysicalDevice device);
 	bool _IsDeviceSuitable(VkPhysicalDevice device);
@@ -44,6 +45,13 @@ public:
 	VkSurfaceKHR _surface;
 
 	//==Getters==
+
+	VkCommandPool GetVulkanCommandPool()
+	{
+		return commandPool;
+	}
+
+
 	const VkInstance GetVulkanInstance() const
 	{
 		return _instance;
@@ -89,6 +97,9 @@ public:
 	const std::vector<const char*> deviceExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	};
+
+
+	VkCommandPool commandPool = VK_NULL_HANDLE;
 
 	//Instance, device and queues
 	QueueFamilyIndices _indices;

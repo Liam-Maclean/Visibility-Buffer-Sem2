@@ -26,7 +26,7 @@ void ImGUIInterface::init(float width, float height)
 	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 }
 
-void ImGUIInterface::initResources(VkRenderPass renderPass)
+void ImGUIInterface::initResources(VkRenderPass renderPass, VkQueue copyQueue)
 {
 	ImGuiIO& io = ImGui::GetIO();
 
@@ -58,8 +58,6 @@ void ImGUIInterface::initResources(VkRenderPass renderPass)
 	vk::tools::ErrorCheck(vkAllocateMemory(pRenderer->GetVulkanDevice(), &memAllocInfo, nullptr, &fontMemory));
 	vk::tools::ErrorCheck(vkBindImageMemory(pRenderer->GetVulkanDevice(), fontImage, fontMemory, 0));
 
-
-
 	VkImageViewCreateInfo viewInfo = {};
 	viewInfo.image = fontImage;
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -73,6 +71,77 @@ void ImGUIInterface::initResources(VkRenderPass renderPass)
 
 	//Staging buffer and copy commands
 
+	vk::wrappers::Buffer stagingBuffer;
+	pRenderer->_CreateBuffer(uploadSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer);
+
+
+	stagingBuffer.map();
+	memcpy(stagingBuffer.mapped, fontData, uploadSize);
+	stagingBuffer.unmap();
+
+	// Copy buffer data to font image
+	VkCommandBuffer copyCmd;
+	VkCommandBufferAllocateInfo  cmdbufAlocateInfo = {};
+	cmdbufAlocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cmdbufAlocateInfo.commandPool = pRenderer->GetVulkanCommandPool();
+	cmdbufAlocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	cmdbufAlocateInfo.commandBufferCount = 1;
+
+	vk::tools::ErrorCheck(vkAllocateCommandBuffers(pRenderer->GetVulkanDevice(), &cmdbufAlocateInfo, &copyCmd));
+	VkCommandBufferBeginInfo cmdbufInfo = {};
+	cmdbufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	vk::tools::ErrorCheck(vkBeginCommandBuffer(copyCmd, &cmdbufInfo));
+
+	vk::tools::setImageLayout(copyCmd, fontImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+
+	// Copy
+	VkBufferImageCopy bufferCopyRegion = {};
+	bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	bufferCopyRegion.imageSubresource.layerCount = 1;
+	bufferCopyRegion.imageExtent.width = texWidth;
+	bufferCopyRegion.imageExtent.height = texHeight;
+	bufferCopyRegion.imageExtent.depth = 1;
+
+	vkCmdCopyBufferToImage(
+		copyCmd,
+		stagingBuffer.buffer,
+		fontImage,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&bufferCopyRegion
+	);
+
+	// Prepare for shader read
+	vk::tools::setImageLayout(copyCmd, fontImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+	if (copyCmd == VK_NULL_HANDLE)
+	{
+		return;
+	}
+
+	vk::tools::ErrorCheck(vkEndCommandBuffer(copyCmd));
+
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &copyCmd;
+
+	// Create fence to ensure that the command buffer has finished executing
+	VkFenceCreateInfo fenceInfo = {};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = 0;
+	VkFence fence;
+	vk::tools::ErrorCheck(vkCreateFence(pRenderer->GetVulkanDevice(), &fenceInfo, nullptr, &fence));
+
+	// Submit to the queue
+	vk::tools::ErrorCheck(vkQueueSubmit(copyQueue, 1, &submitInfo, fence));
+	// Wait for the fence to signal that command buffer has finished executing
+	vk::tools::ErrorCheck(vkWaitForFences(pRenderer->GetVulkanDevice(), 1, &fence, VK_TRUE, 100000000000));
+
+	vkDestroyFence(pRenderer->GetVulkanDevice(), fence, nullptr);
+
+	stagingBuffer.destroy();
 
 	//font texture
 	VkSamplerCreateInfo samplerInfo = {};
@@ -290,8 +359,8 @@ void ImGUIInterface::initResources(VkRenderPass renderPass)
 
 	pipelineCreateInfo.pVertexInputState = &vertexInputState;
 
-	shaderStages[0] = loadShader("Shaders/Deferred/deferred.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = loadShader("Shaders/Deferred/deferred.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0] = loadShader("Shaders/ImGui/ui.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = loadShader("Shaders/ImGui/ui.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	vkCreateGraphicsPipelines(pRenderer->GetVulkanDevice(), pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline);
 
@@ -306,7 +375,7 @@ void ImGUIInterface::newFrame(bool updateFrameGraph)
 
 	ImVec4 clear_color = ImColor(114, 144, 154);
 
-	ImGui::PlotLines("Frame Times", &uiSettings.frameTimes[0], 50, 0, "", uiSettings.frameTimeMin, uiSettings.frameTimeMax, ImVec2(0, 80));
+	//ImGui::PlotLines("Frame Times", &uiSettings.frameTimes[0], 50, 0, "", uiSettings.frameTimeMin, uiSettings.frameTimeMax, ImVec2(0, 80));
 
 	ImGui::Text("Camera");
 
@@ -315,8 +384,8 @@ void ImGUIInterface::newFrame(bool updateFrameGraph)
 	ImGui::Checkbox("Render models", &uiSettings.displayModels);
 	ImGui::End();
 
-	ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiSetCond_FirstUseEver);
-	ImGui::ShowDemoWindow();
+	//ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiSetCond_FirstUseEver);
+	//ImGui::ShowDemoWindow();
 
 	// Render to generate draw buffers
 	ImGui::Render();

@@ -6,6 +6,8 @@ glslangValidator.exe -V VisibilityBuffer\VBID.frag -o VisibilityBuffer\VBID.frag
 glslangValidator.exe -V VisibilityBuffer\VBID.vert -o VisibilityBuffer\VBID.vert.spv
 glslangValidator.exe -V VisibilityBuffer\VBShade.frag -o VisibilityBuffer\VBShade.frag.spv
 glslangValidator.exe -V VisibilityBuffer\VBShade.vert -o VisibilityBuffer\VBShade.vert.spv
+glslangValidator.exe -V ImGui\ui.frag -o ImGui\ui.frag.spv
+glslangValidator.exe -V ImGui\ui.vert -o ImGui\ui.vert.spv
 glslangValidator.exe -V Deferred\shadow.frag -o Deferred\shadow.frag.spv
 glslangValidator.exe -V Deferred\shadow.vert -o Deferred\shadow.vert.spv
 pause

@@ -72,7 +72,7 @@ public:
 	void CreateDeferredCommandBuffers();
 
 
-	//ImGUIInterface *imGui = nullptr;
+	ImGUIInterface *imGui = nullptr;
 
 	vertice vertices;
 	uboVS offScreenUniformVSData;
@@ -130,7 +130,7 @@ public:
 	vk::wrappers::Buffer fullScreenVertexUBOBuffer;
 	vk::wrappers::Buffer offScreenVertexUBOBuffer;
 
-
+	bool LeftMouseDown = true;;
 
 };
 

@@ -1,7 +1,10 @@
-﻿  Main.cpp
+﻿  VulkanDeferredApplication.cpp
+\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(52): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(554): warning C4244: 'initializing': conversion from 'const VkDeviceSize' to '::size_t', possible loss of data
+\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(998): warning C4018: '<': signed/unsigned mismatch
   Generating code
-  58 of 3707 functions ( 1.6%) were compiled, the rest were copied from previous compilation.
-    6 functions were new in current compilation
+  6 of 4557 functions ( 0.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
     3 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   VulkanProject.vcxproj -> \\StuHome\HomeDrive5$\1503395\GitHub\Visibility-Buffer-Sem2\VulkanProject\Release\VulkanProject.exe
