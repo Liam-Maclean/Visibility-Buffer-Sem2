@@ -132,6 +132,7 @@ void ImGUIInterface::initResources(VkRenderPass renderPass, VkQueue copyQueue)
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceInfo.flags = 0;
 	VkFence fence;
+
 	vk::tools::ErrorCheck(vkCreateFence(pRenderer->GetVulkanDevice(), &fenceInfo, nullptr, &fence));
 
 	// Submit to the queue
@@ -140,6 +141,8 @@ void ImGUIInterface::initResources(VkRenderPass renderPass, VkQueue copyQueue)
 	vk::tools::ErrorCheck(vkWaitForFences(pRenderer->GetVulkanDevice(), 1, &fence, VK_TRUE, 100000000000));
 
 	vkDestroyFence(pRenderer->GetVulkanDevice(), fence, nullptr);
+
+	vkFreeCommandBuffers(pRenderer->GetVulkanDevice(), pRenderer->GetVulkanCommandPool(), 1, &copyCmd);
 
 	stagingBuffer.destroy();
 
@@ -215,7 +218,10 @@ void ImGUIInterface::initResources(VkRenderPass renderPass, VkQueue copyQueue)
 	writeDescriptorSets[0].dstArrayElement = 0;
 	writeDescriptorSets[0].dstBinding = 0;
 	writeDescriptorSets[0].pImageInfo = &fontDescriptor;
+	writeDescriptorSets[0].pBufferInfo = 0;
+	writeDescriptorSets[0].pTexelBufferView = 0;
 	writeDescriptorSets[0].descriptorCount = 1;
+	writeDescriptorSets[0].pNext = 0;
 
 	vkUpdateDescriptorSets(pRenderer->GetVulkanDevice(), static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 

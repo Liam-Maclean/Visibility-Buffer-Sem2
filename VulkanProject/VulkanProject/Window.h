@@ -12,6 +12,7 @@
 #include "Renderer.h"
 #include <set>
 #include <map>
+#include "VertexStructure.h"
 
 struct UniformBufferObject {
 	glm::mat4 model;
@@ -25,15 +26,6 @@ struct SwapChainSupportDetails {
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
-struct Vertex {
-	glm::vec4 pos;
-	glm::vec4 color;
-	glm::vec4 normal;
-
-	bool operator==(const Vertex& other) const {
-		return pos == other.pos && color == other.color && normal == other.normal;
-	}
-};
 struct directionalLight
 {
 	glm::vec3 diffuseColor;
@@ -173,6 +165,7 @@ protected:
 	virtual void _CreateUniformBuffer();
 
 	//Containers for geometry and lights
+	std::vector<BaseModel*> _meshes;
 	std::vector<vk::wrappers::Model*> _models;
 	std::vector<vk::wrappers::DirectionalLight*> _directionalLights;
 	std::vector<vk::wrappers::SpotLight*> _spotLights;

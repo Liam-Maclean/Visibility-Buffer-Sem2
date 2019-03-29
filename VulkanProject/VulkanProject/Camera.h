@@ -20,7 +20,7 @@ public:
 
 private:
 
-	float speed = 3.0f; // 3 units / second
+	float speed = 5.0f; // 3 units / second
 	float mouseSpeed = 2.0f;
 	// horizontal angle : toward -Z
 	float horizontalAngle = -90.0f;

@@ -1,2 +1,7 @@
 ﻿  VulkanDeferredApplication.cpp
-  VulkanProject.vcxproj -> C:\Users\Liam Maclean\Documents\GitHub\VulkanProject\VulkanProject\Debug\VulkanProject.exe
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(102): warning C4018: '<': signed/unsigned mismatch
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(147): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(171): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(589): warning C4244: 'initializing': conversion from 'const VkDeviceSize' to '::size_t', possible loss of data
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(1033): warning C4018: '<': signed/unsigned mismatch
+  VulkanProject.vcxproj -> M:\GitHub\Visibility-Buffer-Sem2\VulkanProject\Debug\VulkanProject.exe

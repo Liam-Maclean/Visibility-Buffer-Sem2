@@ -7,7 +7,8 @@ void VulkanDeferredApplication::InitialiseVulkanApplication()
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore));
 	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore));
-	//vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &shadowSemaphore));
+	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &shadowSemaphore));
+	VulkanDeferredApplication::CreateImGui();
 	VulkanDeferredApplication::CreateCamera();
 	VulkanDeferredApplication::_CreateGeometry();
 	VulkanDeferredApplication::CreateShadowRenderPass();
@@ -16,7 +17,6 @@ void VulkanDeferredApplication::InitialiseVulkanApplication()
 	VulkanDeferredApplication::_CreateDescriptorSetLayout();
 	VulkanDeferredApplication::_CreateVertexDescriptions();
 	VulkanDeferredApplication::_CreateGraphicsPipeline();
-	VulkanDeferredApplication::prepareImGui();
 	VulkanDeferredApplication::_CreateDescriptorPool();
 	VulkanDeferredApplication::_CreateDescriptorSets();
 	VulkanDeferredApplication::CreateShadowPassCommandBuffers();
@@ -33,6 +33,7 @@ VulkanDeferredApplication::~VulkanDeferredApplication()
 	vkDestroySemaphore(_renderer->GetVulkanDevice(), presentCompleteSemaphore, nullptr);
 	vkDestroySemaphore(_renderer->GetVulkanDevice(), renderCompleteSemaphore, nullptr);
 	vkDestroySemaphore(_renderer->GetVulkanDevice(), offScreenSemaphore, nullptr);
+	vkDestroySemaphore(_renderer->GetVulkanDevice(), shadowSemaphore, nullptr);
 }
 
 //Update
@@ -48,19 +49,19 @@ void VulkanDeferredApplication::Update()
 
 		glfwNewKey = glfwGetKey(_window, GLFW_KEY_SPACE);
 
-		//// Update imGui
+		// Update imGui
 		ImGuiIO& io = ImGui::GetIO();
 		double mousePosX, mousePosY;
 		glfwGetCursorPos(_window, &mousePosX, &mousePosY);
-
+		
 		io.DisplaySize = ImVec2((float)_swapChainExtent.width, (float)_swapChainExtent.height);
 		io.MousePos = ImVec2(mousePosX, mousePosY);
 		io.MouseDown[0] = glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_LEFT) != 0;
 		io.MouseDown[1] = glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_LEFT) != 0;
 
-		
-		VulkanDeferredApplication::_CreateCommandBuffers();
 		VulkanDeferredApplication::DrawFrame();
+
+		VulkanDeferredApplication::_CreateCommandBuffers();
 
 		if (cameraUpdate)
 		{
@@ -97,6 +98,7 @@ void VulkanDeferredApplication::CreateCamera()
 	
 }
 
+//Method to give ImGui the static information on the UI that wont change much (Vertex data, indices data, face data, model name)
 void VulkanDeferredApplication::GiveImGuiStaticInformation()
 {
 	for (int i = 0; i < _models.size(); i++)
@@ -130,21 +132,16 @@ void VulkanDeferredApplication::DrawFrame()
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.signalSemaphoreCount = 1;
 	// Wait for swap chain presentation to finish
 	submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
 	// Signal ready with offscreen semaphore
-	submitInfo.pSignalSemaphores = &shadowSemaphore;
+	submitInfo.pSignalSemaphores = &offScreenSemaphore;
 
 	// Submit work
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &offScreenCmdBuffer;
-
-	VkQueryPoolCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-	createInfo.pNext = nullptr;
-	createInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
-	createInfo.queryCount = 2;
-	vk::tools::ErrorCheck(vkCreateQueryPool(_renderer->GetVulkanDevice(), &createInfo, nullptr, &queryPool));
 
 	auto start = std::chrono::high_resolution_clock::now();
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
@@ -152,13 +149,13 @@ void VulkanDeferredApplication::DrawFrame()
 	frameTimeMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 
 
-	submitInfo.pWaitSemaphores = &shadowSemaphore;
-
-	submitInfo.pSignalSemaphores = &offScreenSemaphore;
-
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &shadowCmdBuffer;
-	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+	//submitInfo.pWaitSemaphores = &shadowSemaphore;
+	//
+	//submitInfo.pSignalSemaphores = &offScreenSemaphore;
+	//
+	//submitInfo.commandBufferCount = 1;
+	//submitInfo.pCommandBuffers = &shadowCmdBuffer;
+	//vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 
 
 	// Scene rendering
@@ -202,7 +199,7 @@ void VulkanDeferredApplication::DrawFrame()
 	vkQueueWaitIdle(_renderer->GetVulkanPresentQueue());
 }
 
-void VulkanDeferredApplication::prepareImGui()
+void VulkanDeferredApplication::CreateImGui()
 {
 	imGui = new ImGUIInterface(_renderer);
 	imGui->init((float)_swapChainExtent.width, (float)_swapChainExtent.height);
@@ -463,8 +460,8 @@ void VulkanDeferredApplication::UpdateUniformBuffer(uint32_t currentImage)
 	memcpy(data, &offScreenUniformVSData, sizeof(uboVS));
 	vkUnmapMemory(_renderer->GetVulkanDevice(), offScreenVertexUBOBuffer.memory);
 	offScreenVertexUBOBuffer.SetUpDescriptorSet();
-
-
+	
+	
 	void* data2;
 	vkMapMemory(_renderer->GetVulkanDevice(), cameraEyeBuffer.memory, 0, sizeof(glm::vec4), 0, &data2);
 	memcpy(data2, &camera->GetCameraEye(), sizeof(glm::vec4));
@@ -499,23 +496,47 @@ void VulkanDeferredApplication::_CreateGeometry()
 	planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
 	planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
 
-	houseModel = new ImportedModel("Textures/dragon.obj", false);
+	houseModel = new ImportedModel("Textures/Sphere.obj", true);
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
 	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
 	houseModel->GetVertexBuffer()->SetUpDescriptorSet();
 
+
+	//Loads the sponza scene
+	std::vector<std::string> textureFilepaths;
+	BaseModel::LoadMeshFromFile("Textures/Sponza/sponza.obj", "Textures/Sponza", true, _meshes, textureFilepaths);
+
+	for (int i = 0; i < _meshes.size(); i++)
+	{
+		_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetVertexBufferSize(), &_meshes[i]->GetVertexBuffer()->buffer, &_meshes[i]->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, _meshes[i]->GetVertexData());
+		_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetIndexBufferSize(), &_meshes[i]->GetIndexBuffer()->buffer, &_meshes[i]->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, _meshes[i]->GetIndexData());
+		_meshes[i]->GetIndexBuffer()->SetUpDescriptorSet();
+		_meshes[i]->GetVertexBuffer()->SetUpDescriptorSet();
+
+		_models.push_back(new vk::wrappers::Model());
+		_models[i]->model = _meshes[i];
+		_models[i]->texture.image = _CreateTextureImage("Textures/DefaultTexture.jpg");
+		_models[i]->texture.imageView = _CreateTextureImageView(_models[i]->texture.image);
+		_models[i]->texture.sampler = _CreateTextureSampler();
+	}
+
+	
+
+
+
+
 	//Models
-	_models.push_back(new vk::wrappers::Model());
-	_models.push_back(new vk::wrappers::Model());
-	_models[0]->model = houseModel;
-	_models[0]->texture.image = _CreateTextureImage("Textures/DefaultTexture.jpg");
-	_models[0]->texture.imageView = _CreateTextureImageView(_models[0]->texture.image);
-	_models[0]->texture.sampler = _CreateTextureSampler();
-	_models[1]->model = planeMesh;
-	_models[1]->texture.image = _CreateTextureImage("Textures/BrickTexture.jpg");
-	_models[1]->texture.imageView = _CreateTextureImageView(_models[1]->texture.image);
-	_models[1]->texture.sampler = _CreateTextureSampler();
+	//_models.push_back(new vk::wrappers::Model());
+	//_models.push_back(new vk::wrappers::Model());
+	//_models[0]->model = houseModel;
+	//_models[0]->texture.image = _CreateTextureImage("Textures/DefaultTexture.jpg");
+	//_models[0]->texture.imageView = _CreateTextureImageView(_models[0]->texture.image);
+	//_models[0]->texture.sampler = _CreateTextureSampler();
+	//_models[1]->model = planeMesh;
+	//_models[1]->texture.image = _CreateTextureImage("Textures/BrickTexture.jpg");
+	//_models[1]->texture.imageView = _CreateTextureImageView(_models[1]->texture.image);
+	//_models[1]->texture.sampler = _CreateTextureSampler();
 
 	//*Lighting*
 	_spotLights.push_back(new vk::wrappers::SpotLight());
@@ -598,7 +619,7 @@ void VulkanDeferredApplication::SetUpUniformBuffers()
 		dynamicAlignment = (dynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
 	}
 	//checks buffer size by how many models there are times alignment
-	size_t bufferSize = 2 * dynamicAlignment;
+	size_t bufferSize = _models.size() * dynamicAlignment;
 	uboDataDynamic.model = (glm::mat4*)_aligned_malloc(bufferSize, dynamicAlignment);
 	assert(uboDataDynamic.model);
 
@@ -617,19 +638,18 @@ void VulkanDeferredApplication::SetUpUniformBuffers()
 		VkSampler* modelSampler = (VkSampler*)(((uint64_t)uboTextureDataDynamic.sampler + (i * dynamicTextureAlignment)));
 
 
-		if (i == 0)
-		{
-			*modelMat = glm::mat4(1.0f);
-			*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, 2.0f, 0.0f));
-			//*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			*modelMat = glm::scale(*modelMat, glm::vec3(0.05f, 0.05f, 0.05f));
-		}
-		else if (i == 1)
-		{ 
-			*modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-			*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-			*modelMat = glm::scale(*modelMat, glm::vec3(8.0f, 8.0f, 8.0f));
-		}
+		
+		*modelMat = glm::mat4(1.0f);
+		*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, -2.0f, 0.0f));
+		//*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		*modelMat = glm::scale(*modelMat, glm::vec3(0.005f, 0.005f, 0.005f));
+		
+		//else if (i == 0)
+		//{ 
+		//	*modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+		//	*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		//	*modelMat = glm::scale(*modelMat, glm::vec3(8.0f, 8.0f, 8.0f));
+		//}
 	}
 	
 	//Creates dynamic uniform buffer
@@ -1433,9 +1453,9 @@ void VulkanDeferredApplication::CreateDeferredCommandBuffers()
 
 	//Clear values for attachments in fragment shader
 	std::array<VkClearValue, 4> clearValues;
-	clearValues[0].color = { {  1.0f,0.5f,1.0f,0.0f } };
-	clearValues[1].color = { {  1.0f,0.5f,1.0f,0.0f } };
-	clearValues[2].color = { {  1.0f,0.5f,1.0f,0.0f } };
+	clearValues[0].color = { {  0.0f,0.0f,0.0f,0.0f } };
+	clearValues[1].color = { {  0.0f,0.0f,0.0f,0.0f } };
+	clearValues[2].color = { {  0.0f,0.0f,0.0f,0.0f } };
 	clearValues[3].depthStencil = { 1.0f, 0 };
 
 	//begin to set up the information for the render pass
@@ -1493,15 +1513,26 @@ void VulkanDeferredApplication::CreateDeferredCommandBuffers()
 //Method to draw with the command buffers (Override)
 void VulkanDeferredApplication::_CreateCommandBuffers()
 {
-	_drawCommandBuffers.resize(_swapChainFramebuffers.size());
+	if (_drawCommandBuffers.size() != _swapChainFramebuffers.size())
+	{
+		_drawCommandBuffers.resize(_swapChainFramebuffers.size());
+		_drawCommandBuffers[0] = VK_NULL_HANDLE;
+		_drawCommandBuffers[1] = VK_NULL_HANDLE;
+		_drawCommandBuffers[2] = VK_NULL_HANDLE;
+	}
+	
 
-	VkCommandBufferAllocateInfo command_buffer_allocate_info{};
-	command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	command_buffer_allocate_info.commandPool = _commandPool;
-	command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	command_buffer_allocate_info.commandBufferCount = static_cast<uint32_t>(_drawCommandBuffers.size());
+	if (_drawCommandBuffers[0] == VK_NULL_HANDLE)
+	{
+		VkCommandBufferAllocateInfo command_buffer_allocate_info{};
+		command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		command_buffer_allocate_info.commandPool = _commandPool;
+		command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		command_buffer_allocate_info.commandBufferCount = static_cast<uint32_t>(_drawCommandBuffers.size());
 
-	vk::tools::ErrorCheck(vkAllocateCommandBuffers(_renderer->GetVulkanDevice(), &command_buffer_allocate_info, _drawCommandBuffers.data()));
+		vk::tools::ErrorCheck(vkAllocateCommandBuffers(_renderer->GetVulkanDevice(), &command_buffer_allocate_info, _drawCommandBuffers.data()));
+	}
+
 
 	VkCommandBufferBeginInfo command_buffer_begin_info{};
 	command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1606,7 +1637,7 @@ void VulkanDeferredApplication::_CreateDescriptorPool()
 	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	pool_sizes[0].descriptorCount = static_cast<uint32_t>(20);
 	pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	pool_sizes[1].descriptorCount = static_cast<uint32_t>(20);
+	pool_sizes[1].descriptorCount = static_cast<uint32_t>(400);
 	pool_sizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	pool_sizes[2].descriptorCount = static_cast<uint32_t>(_swapChainImages.size() * 2);
 	pool_sizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -1622,18 +1653,18 @@ void VulkanDeferredApplication::_CreateDescriptorPool()
 
 	
 	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	pool_sizes[0].descriptorCount = static_cast<uint32_t>(20);
+	pool_sizes[0].descriptorCount = static_cast<uint32_t>(200);
 	pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	pool_sizes[1].descriptorCount = static_cast<uint32_t>(20);
+	pool_sizes[1].descriptorCount = static_cast<uint32_t>(400);
 	pool_sizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	pool_sizes[2].descriptorCount = static_cast<uint32_t>(11);
 	pool_sizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	pool_sizes[3].descriptorCount = static_cast<uint32_t>(2);
+	pool_sizes[3].descriptorCount = static_cast<uint32_t>(200);
 
 	pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	pool_create_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
 	pool_create_info.pPoolSizes = pool_sizes.data();
-	pool_create_info.maxSets = static_cast<uint32_t>(_swapChainImages.size());
+	pool_create_info.maxSets = static_cast<uint32_t>(400);
 
 	
 	vk::tools::ErrorCheck(vkCreateDescriptorPool(_renderer->GetVulkanDevice(), &pool_create_info, nullptr, &descriptorPool));
