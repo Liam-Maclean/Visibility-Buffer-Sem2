@@ -70,7 +70,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(ProjectDir)GLFW\include;$(ProjectDir)glm\glm;$(ProjectDir)TinyObjLoader;C:\VulkanSDK\1.1.73.0\Include;$(ProjectDir);$(ProjectDir)GLFW;$(ProjectDir)imgui;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)GLFW\include;$(ProjectDir)glm\glm;$(ProjectDir)TinyObjLoader;$(ProjectDir)VulkanSDK\1.1.73.0\Include;$(ProjectDir);$(ProjectDir)GLFW;$(ProjectDir)imgui;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)GLFW\lib-vc2015;$(ProjectDir)glm\glm;$(ProjectDir)TinyObjLoader;C:\VulkanSDK\1.1.73.0\Lib32;$(LibraryPath)</LibraryPath>
     <ReferencePath>$(ProjectDir)Shaders;$(ProjectDir)Textures;$(ReferencePath)</ReferencePath>
   </PropertyGroup>

@@ -9,9 +9,25 @@ class ImGUIInterface
 public:
 
 	struct UISettings {
+
+		std::string modelName = "Model: ";
 		bool displayModels = true;
-		std::array<float, 50> frameTimes{};
-		float frameTimeMin = 9999.0f, frameTimeMax = 0.0f;
+		bool cameraActive = false;
+		int vertices = 0, indices = 0, face = 0;
+		
+		float nanosecondsMRTPass = 0;
+		float nanosecondsShadingPass = 0;
+
+		std::array<float, 50> frameTimesMRT{};
+		double frameTimeMinMRT = 0.0f, frameTimeMaxMRT = 0.0f;
+
+		std::array<float, 50> frameTimesShading{};
+		double frameTimeMinShading = 0.0f, frameTimeMaxShading = 0.0f;
+		float lightTimer;
+
+
+
+
 	}uiSettings;
 
 	ImGUIInterface(Renderer* renderer);
@@ -19,7 +35,8 @@ public:
 
 	void init(float width, float height);
 	void initResources(VkRenderPass renderPass, VkQueue copyQueue);
-	void newFrame(bool updateFrameGraph);
+	void newFrame(double frameTimerMRT, double frameTimerShading, bool updateFrameGraph);
+	void UpdateImGuiInformation(bool cameraActive);
 	void updateBuffers();
 	void DrawFrame(VkCommandBuffer commandBuffer);
 	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage);

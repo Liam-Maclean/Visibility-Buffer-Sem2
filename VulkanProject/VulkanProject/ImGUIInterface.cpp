@@ -15,8 +15,8 @@ void ImGUIInterface::init(float width, float height)
 {
 	// Color scheme
 	ImGuiStyle& style = ImGui::GetStyle();
-	style.Colors[ImGuiCol_TitleBg] = ImVec4(1.0f, 0.0f, 0.0f, 0.6f);
-	style.Colors[ImGuiCol_TitleBgActive] = ImVec4(1.0f, 0.0f, 0.0f, 0.8f);
+	style.Colors[ImGuiCol_TitleBg] = ImVec4(0.0f, 0.0f, 1.0f, 0.6f);
+	style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.0f, 0.0f, 1.0f, 0.8f);
 	style.Colors[ImGuiCol_MenuBarBg] = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
 	style.Colors[ImGuiCol_Header] = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
 	style.Colors[ImGuiCol_CheckMark] = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
@@ -368,7 +368,7 @@ void ImGUIInterface::initResources(VkRenderPass renderPass, VkQueue copyQueue)
 }
 
 
-void ImGUIInterface::newFrame(bool updateFrameGraph)
+void ImGUIInterface::newFrame(double frameTimerMRT, double frameTimerShading,  bool updateFrameGraph)
 {
 	ImGui::NewFrame();
 
@@ -376,19 +376,56 @@ void ImGUIInterface::newFrame(bool updateFrameGraph)
 	ImVec4 clear_color = ImColor(114, 144, 154);
 
 	//ImGui::PlotLines("Frame Times", &uiSettings.frameTimes[0], 50, 0, "", uiSettings.frameTimeMin, uiSettings.frameTimeMax, ImVec2(0, 80));
+	std::string cameraActive = "Camera Active: " + std::string(uiSettings.cameraActive == true ? "TRUE" : "FALSE");
 
-	ImGui::Text("Camera");
+	// Update frame time display
+	if (updateFrameGraph && frameTimerMRT != 0.0f) {
+		std::rotate(uiSettings.frameTimesMRT.begin(), uiSettings.frameTimesMRT.begin() + 1, uiSettings.frameTimesMRT.end());
+		float frameTime = 1000.0f / (frameTimerMRT);
+		uiSettings.frameTimesMRT.back() = frameTime;
+		if (frameTime < uiSettings.frameTimeMinMRT && frameTime != 0.0f) {
+			uiSettings.frameTimeMinMRT = frameTime;
+		}
+		if (frameTime > uiSettings.frameTimeMaxMRT && frameTime != 0.0f) {
+			uiSettings.frameTimeMaxMRT = frameTime;
+		}
+	}
 
-	ImGui::SetNextWindowSize(ImVec2(200, 200), ImGuiSetCond_FirstUseEver);
-	ImGui::Begin("Example settings");
+	// Update frame time display
+	if (updateFrameGraph && frameTimerShading != 0.0f) {
+		std::rotate(uiSettings.frameTimesShading.begin(), uiSettings.frameTimesShading.begin() + 1, uiSettings.frameTimesShading.end());
+		float frameTime = 1000.0f / (frameTimerShading);
+		uiSettings.frameTimesShading.back() = frameTime;
+		if (frameTime < uiSettings.frameTimeMinShading && frameTime != 0.0f) {
+			uiSettings.frameTimeMinShading = frameTime;
+		}
+		if (frameTime > uiSettings.frameTimeMaxShading && frameTime != 0.0f) {
+			uiSettings.frameTimeMaxShading = frameTime;
+		}
+	}
+
+	ImGui::Begin("Vulkan Deferred Rendering settings");
+
 	ImGui::Checkbox("Render models", &uiSettings.displayModels);
+	ImGui::Text(cameraActive.c_str());
+	ImGui::Spacing();
+
+	ImGui::Text(uiSettings.modelName.c_str());
+	ImGui::Text("Vertices: %i   Indices %i    triangles %i", uiSettings.vertices, uiSettings.indices, uiSettings.face);
+	ImGui::PlotLines("MRT frame time", &uiSettings.frameTimesMRT[0], 50, 0, "", uiSettings.frameTimeMinMRT, uiSettings.frameTimeMaxMRT, ImVec2(0, 80));
+	ImGui::PlotLines("Shading frame time", &uiSettings.frameTimesShading[0], 50, 0, "", uiSettings.frameTimeMinShading, uiSettings.frameTimeMaxShading, ImVec2(0, 80));
+
 	ImGui::End();
 
-	//ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiSetCond_FirstUseEver);
-	//ImGui::ShowDemoWindow();
+
 
 	// Render to generate draw buffers
 	ImGui::Render();
+}
+
+void ImGUIInterface::UpdateImGuiInformation(bool cameraActive)
+{
+	uiSettings.cameraActive = cameraActive;
 }
 
 void ImGUIInterface::updateBuffers()

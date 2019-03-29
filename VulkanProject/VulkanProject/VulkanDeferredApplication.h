@@ -7,6 +7,8 @@
 #include "PlaneMesh.h"
 #include "ImportedModel.h"
 #include "ImGUIInterface.h"
+#include <chrono>
+#include <iostream>
 #define TEX_DIMENSIONS 2048;
 
 class VulkanDeferredApplication : public VulkanWindow
@@ -49,6 +51,7 @@ public:
 
 
 	void CreateCamera();
+	void GiveImGuiStaticInformation();
 	void InitialiseVulkanApplication();
 	void Update() override;
 	void DrawFrame() override;
@@ -130,7 +133,16 @@ public:
 	vk::wrappers::Buffer fullScreenVertexUBOBuffer;
 	vk::wrappers::Buffer offScreenVertexUBOBuffer;
 
-	bool LeftMouseDown = true;;
+	VkQueryPool queryPool;
+
+	bool LeftMouseDown = true;
+	bool cameraUpdate = false;
+
+	double frameTimeMRT;
+	double frameTimeShading;
+
+	int glfwOldKey;
+	int glfwNewKey;
 
 };
 

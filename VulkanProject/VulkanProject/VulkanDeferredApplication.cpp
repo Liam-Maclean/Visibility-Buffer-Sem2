@@ -22,6 +22,7 @@ void VulkanDeferredApplication::InitialiseVulkanApplication()
 	VulkanDeferredApplication::CreateShadowPassCommandBuffers();
 	VulkanDeferredApplication::_CreateCommandBuffers();
 	VulkanDeferredApplication::CreateDeferredCommandBuffers();
+	VulkanDeferredApplication::GiveImGuiStaticInformation();
 	VulkanDeferredApplication::Update();
 }
 
@@ -40,8 +41,12 @@ void VulkanDeferredApplication::Update()
 	//Update glfw window if the window is open
 	while (!glfwWindowShouldClose(_window))
 	{
+		
+		glfwOldKey = glfwNewKey;
 		//poll key presses, handle camera and draw the frame to the screen
 		glfwPollEvents();
+
+		glfwNewKey = glfwGetKey(_window, GLFW_KEY_SPACE);
 
 		//// Update imGui
 		ImGuiIO& io = ImGui::GetIO();
@@ -53,9 +58,15 @@ void VulkanDeferredApplication::Update()
 		io.MouseDown[0] = glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_LEFT) != 0;
 		io.MouseDown[1] = glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_LEFT) != 0;
 
-		//camera->HandleInput(_window);
+		
 		VulkanDeferredApplication::_CreateCommandBuffers();
 		VulkanDeferredApplication::DrawFrame();
+
+		if (cameraUpdate)
+		{
+			camera->HandleInput(_window);
+		}
+
 
 		//if escape key is pressed close window
 		if (glfwGetKey(_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -63,6 +74,16 @@ void VulkanDeferredApplication::Update()
 			glfwSetWindowShouldClose(_window, GLFW_TRUE);
 		}
 
+		//if escape key is pressed close window
+		if (glfwNewKey == GLFW_PRESS && glfwOldKey != GLFW_PRESS)
+		{
+			//Flip between true and false
+			cameraUpdate == true ? cameraUpdate = false : cameraUpdate = true;
+		}
+
+		imGui->uiSettings.modelName = "Model: Sphere";
+
+		imGui->UpdateImGuiInformation(cameraUpdate);
 	}
 	vkDeviceWaitIdle(_renderer->GetVulkanDevice());
 }
@@ -74,6 +95,18 @@ void VulkanDeferredApplication::CreateCamera()
 	cameraEye = glm::vec4(-2.0f, 2.0f, 3.0f, 1.0f);
 	camera = new Camera(glm::vec3(cameraEye.x, cameraEye.y, cameraEye.z), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 60.0f, glm::vec2(_swapChainExtent.width, _swapChainExtent.height), 0.1f, 200.0f);
 	
+}
+
+void VulkanDeferredApplication::GiveImGuiStaticInformation()
+{
+	for (int i = 0; i < _models.size(); i++)
+	{
+		imGui->uiSettings.indices += _models[i]->model->GetIndexCount();
+		imGui->uiSettings.vertices += _models[i]->model->GetVertexCount();
+		imGui->uiSettings.face += (_models[i]->model->GetVertexCount() / 3);
+	}
+
+
 }
 
 //Draw frame
@@ -105,7 +138,18 @@ void VulkanDeferredApplication::DrawFrame()
 	// Submit work
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &offScreenCmdBuffer;
+
+	VkQueryPoolCreateInfo createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	createInfo.pNext = nullptr;
+	createInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	createInfo.queryCount = 2;
+	vk::tools::ErrorCheck(vkCreateQueryPool(_renderer->GetVulkanDevice(), &createInfo, nullptr, &queryPool));
+
+	auto start = std::chrono::high_resolution_clock::now();
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+	auto end = std::chrono::high_resolution_clock::now();
+	frameTimeMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 
 
 	submitInfo.pWaitSemaphores = &shadowSemaphore;
@@ -126,7 +170,11 @@ void VulkanDeferredApplication::DrawFrame()
 	// Submit work
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &_drawCommandBuffers[imageIndex];
+	start = std::chrono::high_resolution_clock::now();
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+	end = std::chrono::high_resolution_clock::now();
+	frameTimeShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+
 
 	VkPresentInfoKHR present_info = {};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -451,7 +499,7 @@ void VulkanDeferredApplication::_CreateGeometry()
 	planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
 	planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
 
-	houseModel = new ImportedModel("Textures/sphere.obj", true);
+	houseModel = new ImportedModel("Textures/dragon.obj", false);
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
 	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
@@ -468,14 +516,6 @@ void VulkanDeferredApplication::_CreateGeometry()
 	_models[1]->texture.image = _CreateTextureImage("Textures/BrickTexture.jpg");
 	_models[1]->texture.imageView = _CreateTextureImageView(_models[1]->texture.image);
 	_models[1]->texture.sampler = _CreateTextureSampler();
-
-
-
-
-
-	
-	
-
 
 	//*Lighting*
 	_spotLights.push_back(new vk::wrappers::SpotLight());
@@ -1478,7 +1518,7 @@ void VulkanDeferredApplication::_CreateCommandBuffers()
 	render_pass_begin_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	render_pass_begin_info.pClearValues = clearValues.data();
 
-	imGui->newFrame(true);
+	imGui->newFrame(frameTimeMRT, frameTimeShading, (currentFrame == 0));
 	imGui->updateBuffers();
 
 	//Use swapchain draw command buffers to draw the scene
