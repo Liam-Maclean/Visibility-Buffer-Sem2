@@ -688,7 +688,7 @@ VkSampler VulkanWindow::_CreateTextureSampler()
 	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	sampler_info.anisotropyEnable = VK_FALSE;
+	sampler_info.anisotropyEnable = VK_TRUE;
 	sampler_info.maxAnisotropy = 1;
 	sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_info.unnormalizedCoordinates = VK_FALSE;

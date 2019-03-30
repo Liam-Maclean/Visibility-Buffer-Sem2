@@ -34,9 +34,12 @@ public:
 		tinyobj::attrib_t attrib;
 		std::vector<tinyobj::shape_t> shapes;
 		std::vector<tinyobj::material_t> materials;
+		std::map<std::string, int> materialMap;
 		std::string err;
 
-		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, modelPath.c_str(), "Textures/Sponza/")) {
+		std::cout << materials.max_size() << std::endl;
+
+		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, modelPath.c_str(), materialPath.c_str())) {
 			throw std::runtime_error(err);
 		}
 
@@ -87,14 +90,28 @@ public:
 			
 				newModel->indices.push_back(uniqueVertices[vertex]);
 				//shape.mesh.material_ids;
+
 				
+				newModel->materialID = shape.mesh.material_ids[0];
+
 			}
 			models.push_back(newModel);
 		}
 
 		for (const auto& material : materials)
 		{
-			textureFilepaths.push_back(material.diffuse_texname);
+			if (material.diffuse_texname != "")
+			{
+				std::string string = material.diffuse_texname;
+				string.erase(0, 9);
+				textureFilepaths.push_back(materialPath + "textures/" + string);
+				//textureFilepaths.push_back(materialPath + string);
+			}
+			else
+			{
+				textureFilepaths.push_back("Textures/DefaultTexture.jpg");
+			}
+			
 		}
 	}
 
@@ -109,6 +126,9 @@ public:
 	void* GetIndexData() { return indices.data(); };
 
 public:
+
+	int materialID;
+
 	//Data for mesh (vertices, indices and material)
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;

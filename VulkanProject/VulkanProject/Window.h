@@ -166,6 +166,7 @@ protected:
 
 	//Containers for geometry and lights
 	std::vector<BaseModel*> _meshes;
+	std::vector<vk::wrappers::Texture2D> _textures;
 	std::vector<vk::wrappers::Model*> _models;
 	std::vector<vk::wrappers::DirectionalLight*> _directionalLights;
 	std::vector<vk::wrappers::SpotLight*> _spotLights;

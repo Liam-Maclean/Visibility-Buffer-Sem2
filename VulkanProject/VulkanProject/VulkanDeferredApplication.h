@@ -9,7 +9,7 @@
 #include "ImGUIInterface.h"
 #include <chrono>
 #include <iostream>
-#define TEX_DIMENSIONS 2048;
+#define TEX_DIMENSIONS 4096;
 
 class VulkanDeferredApplication : public VulkanWindow
 {

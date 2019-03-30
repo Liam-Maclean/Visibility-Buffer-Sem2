@@ -1,21 +1,7 @@
-﻿  BaseModel.cpp
-  ImportedModel.cpp
-  Main.cpp
-  Plane.cpp
-  PlaneMesh.cpp
-  VisibilityBuffer.cpp
-m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(252): warning C4244: 'initializing': conversion from 'const VkDeviceSize' to '::size_t', possible loss of data
-  VulkanDeferredApplication.cpp
-m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(58): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
-m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(104): warning C4018: '<': signed/unsigned mismatch
-m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(149): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(173): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(510): warning C4018: '<': signed/unsigned mismatch
-m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(615): warning C4244: 'initializing': conversion from 'const VkDeviceSize' to '::size_t', possible loss of data
-m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(1058): warning C4018: '<': signed/unsigned mismatch
+﻿  Main.cpp
   Generating code
-  35 of 4652 functions ( 0.8%) were compiled, the rest were copied from previous compilation.
-    3 functions were new in current compilation
-    45 functions had inline decision re-evaluated but remain unchanged
+  4 of 4715 functions ( 0.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    1 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
-  VulkanProject.vcxproj -> M:\GitHub\Visibility-Buffer-Sem2\VulkanProject\Release\VulkanProject.exe
+  VulkanProject.vcxproj -> \\StuHome\HomeDrive5$\1503395\GitHub\Visibility-Buffer-Sem2\VulkanProject\Release\VulkanProject.exe

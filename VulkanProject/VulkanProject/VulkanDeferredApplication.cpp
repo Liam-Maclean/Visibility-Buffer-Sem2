@@ -137,7 +137,7 @@ void VulkanDeferredApplication::DrawFrame()
 	// Wait for swap chain presentation to finish
 	submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
 	// Signal ready with offscreen semaphore
-	submitInfo.pSignalSemaphores = &offScreenSemaphore;
+	submitInfo.pSignalSemaphores = &shadowSemaphore;
 
 	// Submit work
 	submitInfo.commandBufferCount = 1;
@@ -145,17 +145,18 @@ void VulkanDeferredApplication::DrawFrame()
 
 	auto start = std::chrono::high_resolution_clock::now();
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
 	auto end = std::chrono::high_resolution_clock::now();
 	frameTimeMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 
 
-	//submitInfo.pWaitSemaphores = &shadowSemaphore;
-	//
-	//submitInfo.pSignalSemaphores = &offScreenSemaphore;
-	//
-	//submitInfo.commandBufferCount = 1;
-	//submitInfo.pCommandBuffers = &shadowCmdBuffer;
-	//vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+	submitInfo.pWaitSemaphores = &shadowSemaphore;
+	
+	submitInfo.pSignalSemaphores = &offScreenSemaphore;
+	
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &shadowCmdBuffer;
+	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 
 
 	// Scene rendering
@@ -169,6 +170,7 @@ void VulkanDeferredApplication::DrawFrame()
 	submitInfo.pCommandBuffers = &_drawCommandBuffers[imageIndex];
 	start = std::chrono::high_resolution_clock::now();
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
 	end = std::chrono::high_resolution_clock::now();
 	frameTimeShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 
@@ -505,7 +507,21 @@ void VulkanDeferredApplication::_CreateGeometry()
 
 	//Loads the sponza scene
 	std::vector<std::string> textureFilepaths;
-	BaseModel::LoadMeshFromFile("Textures/Sponza/sponza.obj", "Textures/Sponza", true, _meshes, textureFilepaths);
+
+	//Crytek Sponza scene
+	BaseModel::LoadMeshFromFile("Textures/Sponza/sponza.obj", "Textures/Sponza/", true, _meshes, textureFilepaths);
+
+	//San_Miguel scene
+	//BaseModel::LoadMeshFromFile("Textures/San_Miguel/san-miguel-low-poly.obj", "Textures/San_Miguel/san-miguel-low-poly.mtl", true, _meshes, textureFilepaths);
+
+	for (int i = 0; i < textureFilepaths.size(); i++)
+	{
+		_textures.push_back(vk::wrappers::Texture2D());
+		_textures[i].image = _CreateTextureImage(textureFilepaths[i].c_str());
+		_textures[i].imageView = _CreateTextureImageView(_textures[i].image);
+		_textures[i].sampler = _CreateTextureSampler();
+	}
+
 
 	for (int i = 0; i < _meshes.size(); i++)
 	{
@@ -516,9 +532,6 @@ void VulkanDeferredApplication::_CreateGeometry()
 
 		_models.push_back(new vk::wrappers::Model());
 		_models[i]->model = _meshes[i];
-		_models[i]->texture.image = _CreateTextureImage("Textures/DefaultTexture.jpg");
-		_models[i]->texture.imageView = _CreateTextureImageView(_models[i]->texture.image);
-		_models[i]->texture.sampler = _CreateTextureSampler();
 	}
 
 	
@@ -544,12 +557,12 @@ void VulkanDeferredApplication::_CreateGeometry()
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 
-	_directionalLights[0]->diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-	_directionalLights[0]->direction = glm::vec4(2.0f, 2.0f, 2.0f, 1.0f);
+	_directionalLights[0]->diffuse = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+	_directionalLights[0]->direction = glm::vec4(2.0f, 7.0f, 2.0f, 1.0f);
 	_directionalLights[0]->specular = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
 
 	_pointLights[0]->diffuse = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-	_pointLights[0]->position = glm::vec4(2.0f, 2.0f, 4.0f,1.0f);
+	_pointLights[0]->position = glm::vec4(2.0f, 7.0f, 4.0f,1.0f);
 	_pointLights[0]->specular = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
 	_pointLights[0]->constant = 1.0f;
 	_pointLights[0]->linear = 0.09f;
@@ -566,10 +579,10 @@ void VulkanDeferredApplication::_CreateGeometry()
 
 	//Shadow matrices
 	glm::mat4 testLightViewMatrix = glm::mat4(1.0f);
-	testLightViewMatrix = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, -20.0f, 20.0f);
+	testLightViewMatrix = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, -30.0f, 30.0f);
 	glm::mat4 perspectView = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 60.0f);
 	lightView = glm::mat4(1.0f);
-	lightView = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	lightView = glm::lookAt(glm::vec3(2.0f, 7.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 	finalLightMatrix = testLightViewMatrix * lightView * glm::mat4(1.0f);
 	inverseFinalLightMatrix =  finalLightMatrix;
@@ -675,8 +688,8 @@ void VulkanDeferredApplication::SetUpUniformBuffers()
 void VulkanDeferredApplication::CreateShadowRenderPass()
 {
 
-	shadowFrameBuffer.width = 2048;
-	shadowFrameBuffer.height = 2048;
+	shadowFrameBuffer.width = TEX_DIMENSIONS;
+	shadowFrameBuffer.height = TEX_DIMENSIONS;
 
 	//Find Depth Format
 	VkFormat DepthFormat;
@@ -1073,8 +1086,8 @@ void VulkanDeferredApplication::_CreateDescriptorSets()
 
 		VkDescriptorImageInfo image_info = {};
 		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		image_info.imageView = _models[i]->texture.imageView;
-		image_info.sampler = _models[i]->texture.sampler;
+		image_info.imageView = _textures[_models[i]->model->materialID].imageView;
+		image_info.sampler = _textures[_models[i]->model->materialID].sampler;
 
 		std::vector<VkWriteDescriptorSet> descriptor_writes_model;
 		//Binding 0: Vertex Shader UBO
@@ -1664,7 +1677,7 @@ void VulkanDeferredApplication::_CreateDescriptorPool()
 	pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	pool_create_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
 	pool_create_info.pPoolSizes = pool_sizes.data();
-	pool_create_info.maxSets = static_cast<uint32_t>(400);
+	pool_create_info.maxSets = static_cast<uint32_t>(1600);
 
 	
 	vk::tools::ErrorCheck(vkCreateDescriptorPool(_renderer->GetVulkanDevice(), &pool_create_info, nullptr, &descriptorPool));

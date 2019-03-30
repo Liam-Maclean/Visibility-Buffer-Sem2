@@ -143,24 +143,24 @@ void main()
 	//	}
 	//}
 	//
-	//for(int i = 0; i < 1; i++)
-	//{
-	//	vec4 fragPosInvertY = fragPos;
-	//	fragPosInvertY.y = -fragPosInvertY.y;
-	//
-	//	vec4 shadowClip = lightMatrix.matrix * vec4(fragPosInvertY.xyz, 1.0);
-	//	
-	//	float shadow = 1.0;
-	//	vec3 shadowCoord = shadowClip.xyz / shadowClip.w;
-	//	shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
-	//	float dist = texture(shadowMapTexture, vec2(shadowCoord.st)).r;
-	//	if (dist < shadowCoord.z - 0.005f) 
-	//	{
-	//		shadow = 0.1f;
-	//	}
-	//	
-	//	diffuseComponent *= shadow;
-	//}
+	for(int i = 0; i < 1; i++)
+	{
+		vec4 fragPosInvertY = fragPos;
+		fragPosInvertY.y = -fragPosInvertY.y;
+	
+		vec4 shadowClip = lightMatrix.matrix * vec4(fragPosInvertY.xyz, 1.0);
+		
+		float shadow = 1.0;
+		vec3 shadowCoord = shadowClip.xyz / shadowClip.w;
+		shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
+		float dist = texture(shadowMapTexture, vec2(shadowCoord.st)).r;
+		if (dist < shadowCoord.z - 0.005f) 
+		{
+			shadow = 0.1f;
+		}
+		
+		diffuseComponent *= shadow;
+	}
 
 	vec3 outColor = (ambientColor.xyz + diffuseComponent.xyz + specular.xyz) * albedo.xyz;
 	outFragColor = vec4(outColor.xyz, 1.0);
