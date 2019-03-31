@@ -20,7 +20,11 @@ out gl_PerVertex
 
 void main()
 {
+	//vec4 flippedYPos = inPos;
+	//flippedYPos.y = -flippedYPos.y;
+
 	uint drawID = gl_DrawIDARB;
+	
 	gl_Position = ubo.projection * ubo.view * ubo.model * vec4(inPos.xyz, 1.0);
 	outDrawID = drawID;
 }

@@ -391,7 +391,7 @@ void Renderer::_SetupDebug()
 	debug_callback_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
 	debug_callback_create_info.pfnCallback = VulkanDebugCallback;
 	debug_callback_create_info.flags =
-		//VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
+		VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
 		VK_DEBUG_REPORT_WARNING_BIT_EXT |
 		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
 		VK_DEBUG_REPORT_ERROR_BIT_EXT |
@@ -401,6 +401,7 @@ void Renderer::_SetupDebug()
 	//pushback the layer we want to use as our validation layers for the instance
 	//_instance_layers.push_back("VK_LAYER_RENDERDOC_Capture");
 	_instance_layers.push_back("VK_LAYER_LUNARG_standard_validation");
+	//_instance_layers.push_back("VK_LAYER_LUNARG_object_tracker");
 	//_instance_layers.push_back("VK_LAYER_NV_optimus");
 	//_instance_layers.push_back("VK_LAYER_NV_nomad");
 	//_instance_layers.push_back("VK_LAYER_NV_nsight");

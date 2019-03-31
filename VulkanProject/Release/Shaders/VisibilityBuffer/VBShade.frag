@@ -95,16 +95,13 @@ layout (location = 0) out vec4 outColor;
 
 void main()
 {
-	vec4 ambientColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	vec3 diffuseComponent = vec3(0.0f, 0.0f, 0.0f);
-
-	//outColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
     vec4 visRaw = texelFetch(inVBTexture, ivec2(gl_FragCoord.xy), 0);
-	//vec4 visRaw = texture(inVBTexture, vec2(gl_FragCoord.xy));
-	// vec4 visRaw = texture(inVBTexture, inScreenPos);
-	//vec4 visRaw = texelFetch(inVBTexture, inScreenPos, 0);
+	
+	
     //// Unpack float4 render target data into uint to extract data
     uint alphaBit_drawID_triID = packUnorm4x8(visRaw);
+	
+	
 	vec3 shadedColor = vec3(1.0f, 1.0f, 1.0f);
     //// Early exit if this pixel doesn't contain triangle data
 	if (alphaBit_drawID_triID != 0)
@@ -166,7 +163,7 @@ void main()
 		texCoordFlipped2.y = 1.0 - texCoordFlipped2.y;
 	
 	
-		vec2 vertexPre0 = vertexPosData[index0].color.xy * one_over_w[0];
+		vec2 vertexPre0 = 	vertexPosData[index0].color.xy * one_over_w[0];
 		vec2 vertexPre1 = 	vertexPosData[index1].color.xy * one_over_w[1];
 		vec2 vertexPre2 = 	vertexPosData[index2].color.xy * one_over_w[2];
 	
@@ -178,48 +175,18 @@ void main()
 			texCoordFlipped2 * one_over_w[2]
 		};
     
-		vec2 twoOverRes = vec2(2.0f/1000.0f,2.0f/800.0f);
+		vec2 twoOverRes = vec2(2.0f/1280.0f,2.0f/720.0f);
 
 		//// Interpolate texture coordinates and calculate the gradients for texture sampling with mipmapping support
 		GradientInterpolationResults results = interpolateAttributeWithGradient(texCoords, derivativesOut.db_dx, derivativesOut.db_dy, d, twoOverRes);
-	
-		
+
 		vec2 texCoordDX = results.dx * w;
 		vec2 texCoordDY = results.dy * w; 
 		vec2 texCoord = results.interp * w;
 	
 		vec4 textureMap = texture(inTexture, texCoord);
 		vec4 textureGradient = textureGrad(inTexture, texCoord, texCoordDX, texCoordDY);
-	
-		//vec4 normal = vertexPosData[index0].normal;
-	    //
-		//
-		//
-		//vec4 lightDir;
-		//float lightIntensity;
-		//
-		////DIRECTIONAL LIGHTS
-		//for(int i = 0; i < 1; i++)
-		//{
-		//	//Test lighting for a single directional light structure
-		//	lightDir = directionalLightData[i].direction;
-		//	
-		//	//get light intensity of the dot product of the normal and light direction
-		//	lightIntensity = max(dot(normal.xy, lightDir.xyz), 0.0f);
-		//	
-		//	//if the pixel is lit
-		//	if (lightIntensity > 0.0f)
-		//	{
-		//		vec4 viewDir = normalize(camera.eye - fragPos);
-		//		vec3 reflectDir = reflect(-lightDir.xyz, normal.xy);
-		//		float spec = pow(max(dot(viewDir.xyz, reflectDir), 0.0), 32);
-		//		vec3 specular = specularStrength * spec * directionalLightData[i].diffuse.xyz;  
-		//		
-		//		
-		//		diffuseComponent += (directionalLightData[i].diffuse.xyz * lightIntensity);
-		//		//diffuseComponent = normalize(diffuseComponent);
-		//	}
-		//}
+
 	
 		outColor = vec4(textureGradient.xyz, 1);
 	}

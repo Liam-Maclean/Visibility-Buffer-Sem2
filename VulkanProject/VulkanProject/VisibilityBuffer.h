@@ -6,12 +6,12 @@
 #include "PlaneMesh.h"
 #include "Camera.h"
 #include "Plane.h"
+#include "ImGUIInterface.h"
+#include <chrono>
 class VisibilityBuffer :
 	public VulkanWindow
 {
 public:
-
-	
 
 	VisibilityBuffer(Renderer* renderer, int width, int height)
 		:VulkanWindow(renderer, width, height)
@@ -56,7 +56,8 @@ public:
 		VkDescriptorSetLayout compositionLayout;
 	}descriptorSetLayouts;
 
-
+	void GiveImGuiStaticInformation();
+	void CreateImGui();
 	void InitialiseVulkanApplication();
 	void CreateCamera();
 	void _CreateGeometry();
@@ -74,6 +75,9 @@ public:
 	void Update() override;
 	void DrawFrame() override;
 	void _CreateGraphicsPipeline() override;
+
+
+	ImGUIInterface *imGui = nullptr;
 
 	ScreenTarget* screenTarget;
 	PlaneMesh* planeMesh;
@@ -97,17 +101,26 @@ public:
 	vk::wrappers::VFrameBuffer IDFrameBuffer;
 	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage);
 	VkSampler colorSampler;
-	VkCommandBuffer IDCmdBuffer;
-	VkSemaphore IDPassSemaphore;
+
+
+	VkCommandBuffer IDCmdBuffer = VK_NULL_HANDLE;
 
 	VkDescriptorSet IDDescriptorSet;
 	VkDescriptorSet compositionDescriptorSet;
 
 	Camera* camera;
 
-	VkSemaphore presentCompleteSemaphore;
-	VkSemaphore renderCompleteSemaphore;
-	VkSemaphore offScreenSemaphore;
+	VkSemaphore presentCompleteSemaphore = VK_NULL_HANDLE;
+	VkSemaphore renderCompleteSemaphore = VK_NULL_HANDLE;
+	VkSemaphore offScreenSemaphore = VK_NULL_HANDLE;
+	VkSemaphore IDPassSemaphore = VK_NULL_HANDLE;
+
+
+	double frameTimeMRT;
+	double frameTimeShading;
+
+	int glfwOldKey, glfwNewKey;
+	bool cameraUpdate = false;
 
 };
 
