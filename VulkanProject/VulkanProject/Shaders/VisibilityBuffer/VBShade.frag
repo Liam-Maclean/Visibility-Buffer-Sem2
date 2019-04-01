@@ -3,6 +3,8 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
+#define MAX_TEXTURES = 256U
+
 struct DerivativesOutput
 {
 	vec3 db_dx;
@@ -70,6 +72,8 @@ struct vertex
 {
 	vec4 position;
 	vec4 color;
+	vec4 normal;
+	vec4 padding;
 };
 
 layout (binding = 0) uniform UBO 
@@ -79,12 +83,13 @@ layout (binding = 0) uniform UBO
 	mat4 view;
 } ubo;
 
-layout (binding = 1) uniform sampler2D inTexture;
+layout (binding = 1) uniform sampler2D inTexture[256];
 layout (binding = 2) uniform sampler2D inVBTexture;
 layout (std430, binding = 3) readonly buffer indexBuffer
 {
 	uint indexBufferData[];
 };
+
 layout (std430, binding = 4) readonly buffer vertexPosition
 {
 	vertex vertexPosData[];
@@ -108,7 +113,7 @@ void main()
 	{
 		// Extract packed data
 		uint drawID = (alphaBit_drawID_triID >> 23) & 0x000000FF;
-		uint triangleID = (alphaBit_drawID_triID & 0x007FFFFF)+1;
+		uint triangleID = (alphaBit_drawID_triID & 0x007FFFFF);
 		uint alpha1_opaque0 = (alphaBit_drawID_triID >> 31);
     
 		uint startIndex = drawID;
@@ -184,15 +189,21 @@ void main()
 		vec2 texCoordDY = results.dy * w; 
 		vec2 texCoord = results.interp * w;
 	
-		vec4 textureMap = texture(inTexture, texCoord);
-		vec4 textureGradient = textureGrad(inTexture, texCoord, texCoordDX, texCoordDY);
+		uint materialID = drawID;
+		
+	
+	
+		vec4 textureMap = texture(inTexture[drawID], texCoord);
+		vec4 textureGradient = textureGrad(inTexture[drawID], texCoord, texCoordDX, texCoordDY);
 
+		
+		
 	
 		outColor = vec4(textureGradient.xyz, 1);
 	}
 	else 
 	{
-		outColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+		outColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		//outColor = vec4(shadedColor.xyz, 1.0f);
 	}
 }

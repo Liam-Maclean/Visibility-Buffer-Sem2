@@ -116,12 +116,12 @@ public:
 	}
 
 	//Getters
-	size_t GetVertexCount() { return vertices.size(); };
-	size_t GetIndexCount() { return indices.size(); };
+	uint32_t GetVertexCount() {  return static_cast<uint32_t>(vertices.size()); };
+	uint32_t GetIndexCount() {  return static_cast<uint32_t>(indices.size()); };
 	vk::wrappers::Buffer* GetVertexBuffer() { return &vertexBuffer; };
 	vk::wrappers::Buffer* GetIndexBuffer() { return &indicesBuffer; };
-	VkDeviceSize GetVertexBufferSize() { return vertices.size() * sizeof(Vertex); };
-	VkDeviceSize GetIndexBufferSize() { return indices.size() * sizeof(uint32_t); };
+	VkDeviceSize GetVertexBufferSize() { return static_cast<uint32_t>(vertices.size()) * sizeof(Vertex); };
+	VkDeviceSize GetIndexBufferSize() { return static_cast<uint32_t>(indices.size()) * sizeof(uint32_t); };
 	void* GetVertexData() { return vertices.data(); };
 	void* GetIndexData() { return indices.data(); };
 

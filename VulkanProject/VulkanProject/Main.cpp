@@ -2,6 +2,7 @@
 
 
 #define TINYOBJLOADER_IMPLEMENTATION
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "Renderer.h"
 #include "Window.h"
 #include "VulkanDeferredApplication.h"

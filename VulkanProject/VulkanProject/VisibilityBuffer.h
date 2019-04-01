@@ -8,6 +8,7 @@
 #include "Plane.h"
 #include "ImGUIInterface.h"
 #include <chrono>
+
 class VisibilityBuffer :
 	public VulkanWindow
 {
@@ -93,6 +94,10 @@ public:
 	vk::wrappers::Buffer dynamicUboBuffer;
 	vk::wrappers::Buffer dynamicTextureUboBuffer;
 
+	vk::wrappers::Buffer sceneVertexBuffer;
+	vk::wrappers::Buffer sceneIndexBuffer;
+	std::vector<Vertex> sceneVertices;
+	std::vector<uint32_t> sceneIndices;
 
 
 	vertice vertices;
@@ -114,6 +119,8 @@ public:
 	VkSemaphore renderCompleteSemaphore = VK_NULL_HANDLE;
 	VkSemaphore offScreenSemaphore = VK_NULL_HANDLE;
 	VkSemaphore IDPassSemaphore = VK_NULL_HANDLE;
+
+
 
 
 	double frameTimeMRT;
