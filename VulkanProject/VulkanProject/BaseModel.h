@@ -45,6 +45,8 @@ public:
 
 		std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
 
+		
+
 		for (const auto& shape : shapes) {
 			BaseModel* newModel = new BaseModel();
 			for (const auto& index : shape.mesh.indices) {
@@ -128,6 +130,9 @@ public:
 public:
 
 	int materialID;
+	uint32_t indexBase;
+	uint32_t indexCount;
+
 
 	//Data for mesh (vertices, indices and material)
 	std::vector<Vertex> vertices;

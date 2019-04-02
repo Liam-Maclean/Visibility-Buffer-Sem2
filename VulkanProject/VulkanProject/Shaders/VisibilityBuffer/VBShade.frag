@@ -3,7 +3,7 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-#define MAX_TEXTURES = 256U
+#define MAX_TEXTURES = 25
 
 struct DerivativesOutput
 {
@@ -83,7 +83,7 @@ layout (binding = 0) uniform UBO
 	mat4 view;
 } ubo;
 
-layout (binding = 1) uniform sampler2D inTexture[256];
+layout (binding = 1) uniform sampler2D inTexture[25];
 layout (binding = 2) uniform sampler2D inVBTexture;
 layout (std430, binding = 3) readonly buffer indexBuffer
 {
@@ -168,9 +168,9 @@ void main()
 		texCoordFlipped2.y = 1.0 - texCoordFlipped2.y;
 	
 	
-		vec2 vertexPre0 = 	vertexPosData[index0].color.xy * one_over_w[0];
-		vec2 vertexPre1 = 	vertexPosData[index1].color.xy * one_over_w[1];
-		vec2 vertexPre2 = 	vertexPosData[index2].color.xy * one_over_w[2];
+		vec2 vertexPre0 = vertexPosData[index0].color.xy * one_over_w[0];
+		vec2 vertexPre1 = vertexPosData[index1].color.xy * one_over_w[1];
+		vec2 vertexPre2 = vertexPosData[index2].color.xy * one_over_w[2];
 	
 		// Apply perspective correction to texture coordinates
 		mat3x2 texCoords =
@@ -191,8 +191,6 @@ void main()
 	
 		uint materialID = drawID;
 		
-	
-	
 		vec4 textureMap = texture(inTexture[drawID], texCoord);
 		vec4 textureGradient = textureGrad(inTexture[drawID], texCoord, texCoordDX, texCoordDY);
 

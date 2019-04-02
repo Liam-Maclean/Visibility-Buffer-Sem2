@@ -12,6 +12,19 @@ public:
 
 	~ImportedModel();
 
+	struct ModelPart
+	{
+		uint32_t vertexBase;
+		uint32_t vertexCount;
+		uint32_t indexBase;
+		uint32_t indexCount;
+	};
+
+	std::vector<ModelPart> parts;
+
+	uint32_t vertexCount;
+	uint32_t indexCount;
+
 	//Method to load data into vertices datastructure
 	void LoadMeshFromFile(std::string filePath, bool hasTexCoords);
 };

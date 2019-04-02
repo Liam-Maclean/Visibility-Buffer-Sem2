@@ -35,6 +35,10 @@ void VisibilityBuffer::GiveImGuiStaticInformation()
 	}
 }
 
+void VisibilityBuffer::PrepareIndirectData()
+{
+
+}
 void VisibilityBuffer::CreateImGui()
 {
 	imGui = new ImGUIInterface(_renderer);
@@ -95,12 +99,6 @@ void VisibilityBuffer::_CreateGeometry()
 	
 	for (int i = 0; i < _meshes.size(); i++)
 	{
-		sceneVertices.reserve(sceneVertices.size() + _meshes[i]->vertices.size());
-		sceneIndices.reserve(sceneIndices.size() + _meshes[i]->indices.size());
-		sceneVertices.insert(sceneVertices.begin(), _meshes[i]->vertices.begin(), _meshes[i]->vertices.end());
-		sceneIndices.insert(sceneIndices.begin(), _meshes[i]->indices.begin(), _meshes[i]->indices.end());
-
-
 		_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetVertexBufferSize(), &_meshes[i]->GetVertexBuffer()->buffer, &_meshes[i]->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, _meshes[i]->GetVertexData());
 		_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetIndexBufferSize(), &_meshes[i]->GetIndexBuffer()->buffer, &_meshes[i]->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, _meshes[i]->GetIndexData());
 		_meshes[i]->GetIndexBuffer()->SetUpDescriptorSet();
@@ -108,6 +106,11 @@ void VisibilityBuffer::_CreateGeometry()
 	
 		_models.push_back(new vk::wrappers::Model());
 		_models[i]->model = _meshes[i];
+
+		sceneVertices.reserve(sceneVertices.size() + _meshes[i]->vertices.size());
+		sceneIndices.reserve(sceneIndices.size() + _meshes[i]->indices.size());
+		sceneVertices.insert(sceneVertices.end(), _meshes[i]->vertices.begin(), _meshes[i]->vertices.end());
+		sceneIndices.insert(sceneIndices.end(), _meshes[i]->indices.begin(), _meshes[i]->indices.end());
 	}
 
 
@@ -569,6 +572,8 @@ void VisibilityBuffer::_CreateVIDCommandBuffers()
 
 		for (int i = 0; i < _models.size(); i++)
 		{
+
+			vkCmdPushConstants(IDCmdBuffer, _pipelineLayout[PipelineType::vbID], VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(uint32_t), &_models[i]->model->materialID);
 			vkCmdBindPipeline(IDCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::vbID]);
 			vkCmdBindDescriptorSets(IDCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::vbID], 0, 1, &descriptorSets.house, 0, NULL);
 			vkCmdBindVertexBuffers(IDCmdBuffer, 0, 1, &_models[i]->model->GetVertexBuffer()->buffer, offsets);
@@ -871,10 +876,18 @@ void VisibilityBuffer::_CreateDescriptorSetLayout()
 
 	vk::tools::ErrorCheck(vkCreateDescriptorSetLayout(_renderer->GetVulkanDevice(), &descriptorLayoutCreateInfo, nullptr, &descriptorSetLayouts.IDLayout));
 
+	//pipeline layout push constants (For image changing)
+	VkPushConstantRange pushConstantRange = {};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	pushConstantRange.size = sizeof(uint32_t);
+	pushConstantRange.offset = 0;
+
 	VkPipelineLayoutCreateInfo IDPipelineLayoutCreateInfo = {};
 	IDPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	IDPipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayouts.IDLayout;
 	IDPipelineLayoutCreateInfo.setLayoutCount = 1;
+	IDPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+	IDPipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
 	vk::tools::ErrorCheck(vkCreatePipelineLayout(_renderer->GetVulkanDevice(), &IDPipelineLayoutCreateInfo, nullptr, &_pipelineLayout[PipelineType::vbID]));
 

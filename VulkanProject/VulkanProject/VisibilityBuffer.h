@@ -58,6 +58,7 @@ public:
 	}descriptorSetLayouts;
 
 	void GiveImGuiStaticInformation();
+	void PrepareIndirectData();
 	void CreateImGui();
 	void InitialiseVulkanApplication();
 	void CreateCamera();

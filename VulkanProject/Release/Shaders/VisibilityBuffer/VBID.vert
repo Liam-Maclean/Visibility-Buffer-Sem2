@@ -1,6 +1,10 @@
 #version 450
 #extension GL_ARB_shader_draw_parameters : enable
 
+layout (push_constant) uniform PushConstants {
+	uint drawID;
+} pushConstants;
+
 layout (location = 0) in vec4 inPos;
 layout (location = 1) in vec4 inColor;
 
@@ -23,7 +27,7 @@ void main()
 	//vec4 flippedYPos = inPos;
 	//flippedYPos.y = -flippedYPos.y;
 
-	uint drawID = gl_DrawIDARB;
+	uint drawID = pushConstants.drawID;
 	
 	gl_Position = ubo.projection * ubo.view * ubo.model * vec4(inPos.xyz, 1.0);
 	outDrawID = drawID;
