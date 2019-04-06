@@ -76,6 +76,19 @@ struct vertex
 	vec4 padding;
 };
 
+
+
+struct materialInfo{
+	uint materialID;
+	uint padding1;
+};
+
+struct indexData{
+	uint vertexStart;
+	uint padding;
+};
+
+
 layout (binding = 0) uniform UBO 
 {
 	mat4 projection;
@@ -95,6 +108,16 @@ layout (std430, binding = 4) readonly buffer vertexPosition
 	vertex vertexPosData[];
 };
 
+layout (std430, binding = 5) readonly buffer startIndex
+{
+	indexData indirectArgsData[];
+};
+
+layout (std430, binding = 6) readonly buffer materialID
+{
+	materialInfo indirectMaterialIDData[];
+};
+
 layout (location = 0) in vec2 inScreenPos;
 layout (location = 0) out vec4 outColor;
 
@@ -106,7 +129,6 @@ void main()
     //// Unpack float4 render target data into uint to extract data
     uint alphaBit_drawID_triID = packUnorm4x8(visRaw);
 	
-	
 	vec3 shadedColor = vec3(1.0f, 1.0f, 1.0f);
     //// Early exit if this pixel doesn't contain triangle data
 	if (alphaBit_drawID_triID != 0)
@@ -116,10 +138,10 @@ void main()
 		uint triangleID = (alphaBit_drawID_triID & 0x007FFFFF);
 		uint alpha1_opaque0 = (alphaBit_drawID_triID >> 31);
     
-		uint startIndex = drawID;
-		uint triIdx0 = (triangleID * 3 + 0);
-		uint triIdx1 = (triangleID * 3 + 1);
-		uint triIdx2 = (triangleID * 3 + 2);
+		uint startIndex = indirectArgsData[drawID].vertexStart;
+		uint triIdx0 = (triangleID * 3 + 0) + startIndex;
+		uint triIdx1 = (triangleID * 3 + 1) + startIndex;
+		uint triIdx2 = (triangleID * 3 + 2) + startIndex;
     
 		uint index0 = indexBufferData[triIdx0];
 		uint index1 = indexBufferData[triIdx1];
@@ -189,13 +211,11 @@ void main()
 		vec2 texCoordDY = results.dy * w; 
 		vec2 texCoord = results.interp * w;
 	
-		uint materialID = drawID;
+		uint materialIDValue = indirectMaterialIDData[drawID].materialID;
 		
 		vec4 textureMap = texture(inTexture[drawID], texCoord);
-		vec4 textureGradient = textureGrad(inTexture[drawID], texCoord, texCoordDX, texCoordDY);
+		vec4 textureGradient = textureGrad(inTexture[materialIDValue], texCoord, texCoordDX, texCoordDY);
 
-		
-		
 	
 		outColor = vec4(textureGradient.xyz, 1);
 	}

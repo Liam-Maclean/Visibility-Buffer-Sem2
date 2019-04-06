@@ -498,11 +498,11 @@ void VulkanDeferredApplication::_CreateGeometry()
 	planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
 	planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
 
-	houseModel = new ImportedModel("Textures/Sphere.obj", true);
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
-	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
-	houseModel->GetVertexBuffer()->SetUpDescriptorSet();
+	//houseModel = new ImportedModel("Textures/Sphere.obj", true);
+	//_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
+	//_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
+	//houseModel->GetIndexBuffer()->SetUpDescriptorSet();
+	//houseModel->GetVertexBuffer()->SetUpDescriptorSet();
 
 
 	//Loads the sponza scene

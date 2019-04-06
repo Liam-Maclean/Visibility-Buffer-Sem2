@@ -25,6 +25,17 @@ public:
 		glm::mat4 model;
 		glm::mat4 view;
 	};
+	struct materialInfo {
+		uint32_t materialID;
+		uint32_t padding1;
+	};
+	
+	struct vertexArgs {
+		uint32_t vertexBase;
+		uint32_t padding;
+	};
+
+
 	struct vertice {
 		VkPipelineVertexInputStateCreateInfo inputState;
 		VkVertexInputBindingDescription bindingDescriptions;
@@ -91,12 +102,17 @@ public:
 	vk::wrappers::Buffer lightViewMatrixBuffer;
 	glm::mat4 testLightViewMatrix;
 
-
+	vk::wrappers::Buffer indirectCommandsBuffer;
 	vk::wrappers::Buffer dynamicUboBuffer;
 	vk::wrappers::Buffer dynamicTextureUboBuffer;
 
 	vk::wrappers::Buffer sceneVertexBuffer;
 	vk::wrappers::Buffer sceneIndexBuffer;
+
+	vk::wrappers::Buffer materialIDBuffer;
+	vk::wrappers::Buffer vertexStartBuffer;
+
+
 	std::vector<Vertex> sceneVertices;
 	std::vector<uint32_t> sceneIndices;
 
@@ -121,8 +137,11 @@ public:
 	VkSemaphore offScreenSemaphore = VK_NULL_HANDLE;
 	VkSemaphore IDPassSemaphore = VK_NULL_HANDLE;
 
+	std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
+	std::vector<materialInfo> materialIDs;
+	std::vector<vertexArgs> startVertex;
 
-
+	uint32_t indirectDrawCount;
 
 	double frameTimeMRT;
 	double frameTimeShading;

@@ -3,7 +3,7 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-#define MAX_TEXTURES = 256U
+#define MAX_TEXTURES = 25
 
 struct DerivativesOutput
 {
@@ -83,7 +83,15 @@ layout (binding = 0) uniform UBO
 	mat4 view;
 } ubo;
 
-layout (binding = 1) uniform sampler2D inTexture[256];
+struct materialInfo{
+	uint materialID;
+	uint padding1;
+	uint padding2;
+	uint padding3;
+};
+
+
+layout (binding = 1) uniform sampler2D inTexture[25];
 layout (binding = 2) uniform sampler2D inVBTexture;
 layout (std430, binding = 3) readonly buffer indexBuffer
 {
@@ -93,6 +101,16 @@ layout (std430, binding = 3) readonly buffer indexBuffer
 layout (std430, binding = 4) readonly buffer vertexPosition
 {
 	vertex vertexPosData[];
+};
+
+layout (std430, binding = 5) readonly buffer startIndex
+{
+	uint indirectArgsData[];
+};
+
+layout (std430, binding = 6) readonly buffer materialID
+{
+	materialInfo indirectMaterialIDData[];
 };
 
 layout (location = 0) in vec2 inScreenPos;
@@ -116,10 +134,10 @@ void main()
 		uint triangleID = (alphaBit_drawID_triID & 0x007FFFFF);
 		uint alpha1_opaque0 = (alphaBit_drawID_triID >> 31);
     
-		uint startIndex = drawID;
-		uint triIdx0 = (triangleID * 3 + 0);
-		uint triIdx1 = (triangleID * 3 + 1);
-		uint triIdx2 = (triangleID * 3 + 2);
+		uint startIndex = indirectArgsData[drawID];
+		uint triIdx0 = (triangleID * 3 + 0) + startIndex;
+		uint triIdx1 = (triangleID * 3 + 1) + startIndex;
+		uint triIdx2 = (triangleID * 3 + 2) + startIndex;
     
 		uint index0 = indexBufferData[triIdx0];
 		uint index1 = indexBufferData[triIdx1];
@@ -168,9 +186,9 @@ void main()
 		texCoordFlipped2.y = 1.0 - texCoordFlipped2.y;
 	
 	
-		vec2 vertexPre0 = 	vertexPosData[index0].color.xy * one_over_w[0];
-		vec2 vertexPre1 = 	vertexPosData[index1].color.xy * one_over_w[1];
-		vec2 vertexPre2 = 	vertexPosData[index2].color.xy * one_over_w[2];
+		vec2 vertexPre0 = vertexPosData[index0].color.xy * one_over_w[0];
+		vec2 vertexPre1 = vertexPosData[index1].color.xy * one_over_w[1];
+		vec2 vertexPre2 = vertexPosData[index2].color.xy * one_over_w[2];
 	
 		// Apply perspective correction to texture coordinates
 		mat3x2 texCoords =
@@ -189,17 +207,19 @@ void main()
 		vec2 texCoordDY = results.dy * w; 
 		vec2 texCoord = results.interp * w;
 	
-		uint materialID = drawID;
+		uint materialIDValue = indirectMaterialIDData[drawID].materialID;
 		
-	
-	
-		vec4 textureMap = texture(inTexture[drawID], texCoord);
-		vec4 textureGradient = textureGrad(inTexture[drawID], texCoord, texCoordDX, texCoordDY);
+		vec4 textureMap = texture(inTexture[materialIDValue], texCoord);
+		vec4 textureGradient = textureGrad(inTexture[materialIDValue], texCoord, texCoordDX, texCoordDY);
 
-		
+		//float drawIDFloat = float(drawID);
+		//drawIDFloat = drawIDFloat / 1000;
+		//vec4 tempOut = vec4(materialIDValue,materialIDValue,materialIDValue,materialIDValue);
 		
 	
 		outColor = vec4(textureGradient.xyz, 1);
+		
+		//outColor = tempOut;
 	}
 	else 
 	{

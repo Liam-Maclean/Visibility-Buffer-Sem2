@@ -12,7 +12,8 @@ void VisibilityBuffer::InitialiseVulkanApplication()
 	VisibilityBuffer::CreateCamera();
 	VisibilityBuffer::_CreateGeometry();
 	VisibilityBuffer::CreateVBuffer();
-	VisibilityBuffer::_SetUpUniformBuffers();
+	VisibilityBuffer::PrepareIndirectData();
+	VisibilityBuffer::_SetUpUniformBuffers(); 
 	VisibilityBuffer::_CreateDescriptorSetLayout();
 	VisibilityBuffer::_CreateVertexDescriptions();
 	VisibilityBuffer::_CreateGraphicsPipeline();
@@ -23,7 +24,6 @@ void VisibilityBuffer::InitialiseVulkanApplication()
 	VisibilityBuffer::GiveImGuiStaticInformation();
 	VisibilityBuffer::Update();
 }
-
 
 void VisibilityBuffer::GiveImGuiStaticInformation()
 {
@@ -37,8 +37,58 @@ void VisibilityBuffer::GiveImGuiStaticInformation()
 
 void VisibilityBuffer::PrepareIndirectData()
 {
+	int32_t m = 0;
 
+	startVertex.resize(_models[0]->model->parts.size());
+	materialIDs.resize(_models[0]->model->parts.size());
+
+
+	for (size_t i = 0; i < _models[0]->model->parts.size(); i++)
+	{
+		VkDrawIndexedIndirectCommand drawIndexedCmd = {};
+		drawIndexedCmd.instanceCount = 1;
+		drawIndexedCmd.firstInstance = 0;
+		drawIndexedCmd.firstIndex = _models[0]->model->parts[i].indexBase;
+		drawIndexedCmd.indexCount = _models[0]->model->parts[i].indexCount;
+
+		indirectCommands.push_back(drawIndexedCmd);
+		startVertex[i].vertexBase = _models[0]->model->parts[i].indexBase;
+		materialIDs[i].materialID = _models[0]->model->parts[i].materialID;
+
+
+		m++;
+	}
+
+	indirectDrawCount = indirectDrawCount = static_cast<uint32_t>(indirectCommands.size());
+
+
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), indirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand), &indirectCommandsBuffer.buffer, &indirectCommandsBuffer.memory, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, indirectCommands.data());
+
+	/*
+	
+	For each part in the model (each model in the scene for sponza)
+		Create a VkDrawIndexedInDirectCommand
+		set the instance count to the object_instance count (
+		Set the first instance to be m * object_instance_count 
+		Set the first index to be the model parts index base
+		set the index count to be the model parts index count
+		Push back the index draw amount to a vector
+
+
+
+	indirectDrawCount = vkDrawIndexedCommand size;
+
+
+	Create a loop for each indirect command created
+		increment the object count by one per index command
+
+	
+	Make the indirect command buffer through _CreateShaderBuffer() using VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+
+		
+	*/
 }
+
 void VisibilityBuffer::CreateImGui()
 {
 	imGui = new ImGUIInterface(_renderer);
@@ -72,19 +122,23 @@ void VisibilityBuffer::_CreateGeometry()
 	planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
 	planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
 
-	houseModel = new ImportedModel("Textures/chalet.obj", true);
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
-	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
-	houseModel->GetVertexBuffer()->SetUpDescriptorSet();
+
 
 
 	//Loads the sponza scene
 	std::vector<std::string> textureFilepaths;
 	
+	houseModel = new ImportedModel("Textures/Sponza/sponza.obj", true, "Textures/Sponza/", textureFilepaths);
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
+	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
+	houseModel->GetVertexBuffer()->SetUpDescriptorSet();
+
 	//Crytek Sponza scene
-	BaseModel::LoadMeshFromFile("Textures/Sponza/sponza.obj", "Textures/Sponza/", true, _meshes, textureFilepaths);
+	//BaseModel::LoadMeshFromFile("Textures/Sponza/sponza.obj", "Textures/Sponza/", true, _meshes, textureFilepaths);
 	
+
+
 	//San_Miguel scene
 	//BaseModel::LoadMeshFromFile("Textures/San_Miguel/san-miguel-low-poly.obj", "Textures/San_Miguel/san-miguel-low-poly.mtl", true, _meshes, textureFilepaths);
 	
@@ -96,27 +150,26 @@ void VisibilityBuffer::_CreateGeometry()
 		_textures[i].sampler = _CreateTextureSampler();
 	}
 	
+	_models.push_back(new vk::wrappers::Model());
+	_models[0]->model = houseModel;
+
+
 	
-	for (int i = 0; i < _meshes.size(); i++)
-	{
-		_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetVertexBufferSize(), &_meshes[i]->GetVertexBuffer()->buffer, &_meshes[i]->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, _meshes[i]->GetVertexData());
-		_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetIndexBufferSize(), &_meshes[i]->GetIndexBuffer()->buffer, &_meshes[i]->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, _meshes[i]->GetIndexData());
-		_meshes[i]->GetIndexBuffer()->SetUpDescriptorSet();
-		_meshes[i]->GetVertexBuffer()->SetUpDescriptorSet();
-	
-		_models.push_back(new vk::wrappers::Model());
-		_models[i]->model = _meshes[i];
-
-		sceneVertices.reserve(sceneVertices.size() + _meshes[i]->vertices.size());
-		sceneIndices.reserve(sceneIndices.size() + _meshes[i]->indices.size());
-		sceneVertices.insert(sceneVertices.end(), _meshes[i]->vertices.begin(), _meshes[i]->vertices.end());
-		sceneIndices.insert(sceneIndices.end(), _meshes[i]->indices.begin(), _meshes[i]->indices.end());
-	}
-
-
-	//Vertex and index buffer for the shading pass of the visibility buffer
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sceneVertices.size() * sizeof(Vertex), &sceneVertexBuffer.buffer, &sceneVertexBuffer.memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, sceneVertices.data());
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sceneIndices.size() * sizeof(uint32_t), &sceneIndexBuffer.buffer, &sceneIndexBuffer.memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, sceneIndices.data());
+	//for (int i = 0; i < _meshes.size(); i++)
+	//{
+	//	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetVertexBufferSize(), &_meshes[i]->GetVertexBuffer()->buffer, &_meshes[i]->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, _meshes[i]->GetVertexData());
+	//	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetIndexBufferSize(), &_meshes[i]->GetIndexBuffer()->buffer, &_meshes[i]->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, _meshes[i]->GetIndexData());
+	//	_meshes[i]->GetIndexBuffer()->SetUpDescriptorSet();
+	//	_meshes[i]->GetVertexBuffer()->SetUpDescriptorSet();
+	//
+	//	_models.push_back(new vk::wrappers::Model());
+	//	_models[i]->model = _meshes[i];
+	//
+	//	sceneVertices.reserve(sceneVertices.size() + _meshes[i]->vertices.size());
+	//	sceneIndices.reserve(sceneIndices.size() + _meshes[i]->indices.size());
+	//	sceneVertices.insert(sceneVertices.end(), _meshes[i]->vertices.begin(), _meshes[i]->vertices.end());
+	//	sceneIndices.insert(sceneIndices.end(), _meshes[i]->indices.begin(), _meshes[i]->indices.end());
+	//}
 
 
 
@@ -206,7 +259,7 @@ void VisibilityBuffer::_CreateGraphicsPipeline()
 	depthStencilState.depthTestEnable = VK_TRUE;
 	depthStencilState.depthWriteEnable = VK_TRUE;
 	depthStencilState.stencilTestEnable = VK_FALSE;
-	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	depthStencilState.depthBoundsTestEnable = VK_FALSE;
 	depthStencilState.minDepthBounds = 0.0f;
 	depthStencilState.maxDepthBounds = 1.0f;
@@ -342,6 +395,11 @@ void VisibilityBuffer::_SetUpUniformBuffers()
 		}
 	}
 
+
+	VisibilityBuffer::_CreateShaderBuffer(_renderer->GetVulkanDevice(), static_cast<uint32_t>(materialIDs.size()) * sizeof(materialInfo), &materialIDBuffer.buffer, &materialIDBuffer.memory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, materialIDs.data());
+	VisibilityBuffer::_CreateShaderBuffer(_renderer->GetVulkanDevice(), static_cast<uint32_t>(startVertex.size()) * sizeof(vertexArgs), &vertexStartBuffer.buffer, &vertexStartBuffer.memory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, startVertex.data());
+
+
 	//Creates dynamic uniform buffer
 	//_CreateShaderBuffer(_renderer->GetVulkanDevice(), bufferSize, &dynamicUboBuffer.buffer, &dynamicUboBuffer.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &uboDataDynamic);
 	//Maps the data to the dynamic uniform buffer
@@ -367,8 +425,6 @@ void VisibilityBuffer::_SetUpUniformBuffers()
 //Updates the uniform buffers for the descriptor sets
 void VisibilityBuffer::UpdateUniformBuffer()
 {
-	IDMatricesVSData.model = glm::mat4(1.0f);
-	IDMatricesVSData.model = glm::scale(IDMatricesVSData.model, glm::vec3(0.005f, 0.005f, 0.005f));
 	IDMatricesVSData.view = camera->GetViewMatrix();
 	IDMatricesVSData.projection = camera->GetProjectionMatrix();
 
@@ -385,7 +441,7 @@ void VisibilityBuffer::CreateVBuffer()
 	IDFrameBuffer.width = _swapChainExtent.width;
 	IDFrameBuffer.height = _swapChainExtent.height;
 
-	_CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &IDFrameBuffer.VID, IDFrameBuffer);
+	_CreateAttachment(VK_FORMAT_R16G16B16_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &IDFrameBuffer.VID, IDFrameBuffer);
 	
 	//Find Depth Format
 	VkFormat DepthFormat;
@@ -569,17 +625,24 @@ void VisibilityBuffer::_CreateVIDCommandBuffers()
 	
 		VkDeviceSize offsets[1] = { 0 };
 
-
-		for (int i = 0; i < _models.size(); i++)
-		{
-
-			vkCmdPushConstants(IDCmdBuffer, _pipelineLayout[PipelineType::vbID], VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(uint32_t), &_models[i]->model->materialID);
-			vkCmdBindPipeline(IDCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::vbID]);
-			vkCmdBindDescriptorSets(IDCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::vbID], 0, 1, &descriptorSets.house, 0, NULL);
-			vkCmdBindVertexBuffers(IDCmdBuffer, 0, 1, &_models[i]->model->GetVertexBuffer()->buffer, offsets);
-			vkCmdBindIndexBuffer(IDCmdBuffer, _models[i]->model->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
-			vkCmdDrawIndexed(IDCmdBuffer, _models[i]->model->GetIndexCount(), 1, 0, 0, 0);
-		}
+		
+		//Realistically, this should be the draw command vs the first draw command bellow
+		vkCmdBindPipeline(IDCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::vbID]);
+		vkCmdBindDescriptorSets(IDCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::vbID], 0, 1, &descriptorSets.house, 0, NULL);
+		vkCmdBindVertexBuffers(IDCmdBuffer, 0, 1, &_models[0]->model->GetVertexBuffer()->buffer, offsets);
+		vkCmdBindIndexBuffer(IDCmdBuffer, _models[0]->model->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexedIndirect(IDCmdBuffer, indirectCommandsBuffer.buffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
+		
+		//for (int i = 0; i < _models.size(); i++)
+		//{
+		//
+		//	vkCmdPushConstants(IDCmdBuffer, _pipelineLayout[PipelineType::vbID], VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(uint32_t), &_models[i]->model->materialID);
+		//	vkCmdBindPipeline(IDCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::vbID]);
+		//	vkCmdBindDescriptorSets(IDCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::vbID], 0, 1, &descriptorSets.house, 0, NULL);
+		//	vkCmdBindVertexBuffers(IDCmdBuffer, 0, 1, &_models[i]->model->GetVertexBuffer()->buffer, offsets);
+		//	vkCmdBindIndexBuffer(IDCmdBuffer, _models[i]->model->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+		//	vkCmdDrawIndexed(IDCmdBuffer, _models[i]->model->GetIndexCount(), 1, 0, 0, 0);
+		//}
 		
 			//House
 	
@@ -780,7 +843,7 @@ void VisibilityBuffer::_CreateDescriptorSets()
 
 	for (size_t i = 0; i < diffuse_array_image_info.size(); i++)
 	{
-		diffuse_array_image_info[i].sampler = colorSampler;
+		diffuse_array_image_info[i].sampler = _textures[i].sampler;
 		diffuse_array_image_info[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		diffuse_array_image_info[i].imageView = _textures[i].imageView;
 	}
@@ -791,18 +854,31 @@ void VisibilityBuffer::_CreateDescriptorSets()
 	vbid_image_info.imageView = IDFrameBuffer.VID.view;
 
 	VkDescriptorBufferInfo index_buffer_info = {};
-	index_buffer_info.buffer = sceneIndexBuffer.buffer;
+	index_buffer_info.buffer = _models[0]->model->GetIndexBuffer()->buffer;
 	index_buffer_info.offset = 0;
-	index_buffer_info.range = static_cast<uint32_t>(sceneIndices.size()) * sizeof(uint32_t);
+	index_buffer_info.range = _models[0]->model->GetIndexBufferSize();
 
 	VkDescriptorBufferInfo vertex_position_info = {};
-	vertex_position_info.buffer = sceneVertexBuffer.buffer;
+	vertex_position_info.buffer = _models[0]->model->GetVertexBuffer()->buffer;
 	vertex_position_info.offset = 0;
-	vertex_position_info.range = static_cast<uint32_t>(sceneVertices.size()) * sizeof(Vertex);
+	vertex_position_info.range = _models[0]->model->GetVertexBufferSize();
+
+
+	VkDescriptorBufferInfo start_vertex_info = {};
+	start_vertex_info.buffer = vertexStartBuffer.buffer;
+	start_vertex_info.offset = 0;
+	start_vertex_info.range = static_cast<uint32_t>(startVertex.size()) * sizeof(vertexArgs);
+
+
+	VkDescriptorBufferInfo material_data_info = {};
+	material_data_info.buffer = materialIDBuffer.buffer;
+	material_data_info.offset = 0;
+	material_data_info.range = static_cast<uint32_t>(materialIDs.size()) * sizeof(materialInfo);
+
 
 	std::vector<VkWriteDescriptorSet> compDescriptorWritesModel;
 	//Binding 0: Vertex Shader UBO
-	compDescriptorWritesModel.resize(5);
+	compDescriptorWritesModel.resize(7);
 	compDescriptorWritesModel[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	compDescriptorWritesModel[0].dstSet = compositionDescriptorSet;
 	compDescriptorWritesModel[0].dstBinding = 0;
@@ -848,6 +924,23 @@ void VisibilityBuffer::_CreateDescriptorSets()
 	compDescriptorWritesModel[4].pImageInfo = 0;
 	compDescriptorWritesModel[4].pBufferInfo = &vertex_position_info;
 
+	compDescriptorWritesModel[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	compDescriptorWritesModel[5].dstSet = compositionDescriptorSet;
+	compDescriptorWritesModel[5].dstBinding = 5;
+	compDescriptorWritesModel[5].dstArrayElement = 0;
+	compDescriptorWritesModel[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	compDescriptorWritesModel[5].descriptorCount = 1;
+	compDescriptorWritesModel[5].pImageInfo = 0;
+	compDescriptorWritesModel[5].pBufferInfo = &start_vertex_info;
+
+	compDescriptorWritesModel[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	compDescriptorWritesModel[6].dstSet = compositionDescriptorSet;
+	compDescriptorWritesModel[6].dstBinding = 6;
+	compDescriptorWritesModel[6].dstArrayElement = 0;
+	compDescriptorWritesModel[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	compDescriptorWritesModel[6].descriptorCount = 1;
+	compDescriptorWritesModel[6].pImageInfo = 0;
+	compDescriptorWritesModel[6].pBufferInfo = &material_data_info;
 
 
 	vkUpdateDescriptorSets(_renderer->GetVulkanDevice(), static_cast<uint32_t>(compDescriptorWritesModel.size()), compDescriptorWritesModel.data(), 0, nullptr);
@@ -938,8 +1031,21 @@ void VisibilityBuffer::_CreateDescriptorSetLayout()
 	vertex_buffer_layout_binding.descriptorCount = 1;
 	vertex_buffer_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+	//Position layout binding (deferred offscreen buffer sampler)
+	VkDescriptorSetLayoutBinding start_vertex_layout_binding = {};
+	start_vertex_layout_binding.binding = 5;
+	start_vertex_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	start_vertex_layout_binding.descriptorCount = 1;
+	start_vertex_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	std::vector<VkDescriptorSetLayoutBinding> compDescriptorSetLayoutBindings = { ubo_shade_layout_binding, chalet_texture_layout_binding, ID_texture_layout_binding, index_buffer_layout_binding, vertex_buffer_layout_binding };
+	//Position layout binding (deferred offscreen buffer sampler)
+	VkDescriptorSetLayoutBinding material_data_layout_binding = {};
+	material_data_layout_binding.binding = 6;
+	material_data_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	material_data_layout_binding.descriptorCount = 1;
+	material_data_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	std::vector<VkDescriptorSetLayoutBinding> compDescriptorSetLayoutBindings = { ubo_shade_layout_binding, chalet_texture_layout_binding, ID_texture_layout_binding, index_buffer_layout_binding, vertex_buffer_layout_binding, start_vertex_layout_binding, material_data_layout_binding };
 	VkDescriptorSetLayoutCreateInfo compDescriptorLayoutCreateInfo = {};
 	compDescriptorLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	compDescriptorLayoutCreateInfo.pBindings = compDescriptorSetLayoutBindings.data();
