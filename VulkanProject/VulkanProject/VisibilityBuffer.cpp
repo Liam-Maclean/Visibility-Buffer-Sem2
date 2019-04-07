@@ -8,9 +8,11 @@ void VisibilityBuffer::InitialiseVulkanApplication()
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore));
 	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore));
+	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &shadowSemaphore));
 	VisibilityBuffer::CreateImGui();
 	VisibilityBuffer::CreateCamera();
 	VisibilityBuffer::_CreateGeometry();
+	VisibilityBuffer::CreateShadowRenderPass();
 	VisibilityBuffer::CreateVBuffer();
 	VisibilityBuffer::PrepareIndirectData();
 	VisibilityBuffer::_SetUpUniformBuffers(); 
@@ -19,10 +21,95 @@ void VisibilityBuffer::InitialiseVulkanApplication()
 	VisibilityBuffer::_CreateGraphicsPipeline();
 	VisibilityBuffer::_CreateDescriptorPool();
 	VisibilityBuffer::_CreateDescriptorSets();
+	VisibilityBuffer::_CreateShadowCommandBuffers();
 	VisibilityBuffer::_CreateCommandBuffers();
 	VisibilityBuffer::_CreateVIDCommandBuffers();
 	VisibilityBuffer::GiveImGuiStaticInformation();
 	VisibilityBuffer::Update();
+}
+
+void VisibilityBuffer::CreateShadowRenderPass()
+{
+
+	shadowFrameBuffer.width = TEX_DIMENSIONS;
+	shadowFrameBuffer.height = TEX_DIMENSIONS;
+
+	//Find Depth Format
+	VkFormat DepthFormat;
+	DepthFormat = _FindDepthFormat();
+
+	_CreateAttachment(DepthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, &shadowFrameBuffer.depth, shadowFrameBuffer);
+
+	//Attachment descriptions for renderpass 
+	std::array<VkAttachmentDescription, 1> attachmentDescs = {};
+	for (uint32_t i = 0; i < 1; ++i)
+	{
+		attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	}
+
+
+	//formats
+	attachmentDescs[0].format = shadowFrameBuffer.depth.format;
+
+	VkAttachmentReference depthReference = {};
+	depthReference.attachment = 0;
+	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.pColorAttachments = nullptr;
+	subpass.colorAttachmentCount = 0;
+	subpass.pDepthStencilAttachment = &depthReference;
+
+	//Create the render pass using the attachments and dependencies data
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.pAttachments = attachmentDescs.data();
+	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescs.size());
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+	renderPassInfo.dependencyCount = 0;
+	renderPassInfo.pDependencies = nullptr;
+
+	//Create the render pass to go into the frameBuffer struct
+	vk::tools::ErrorCheck(vkCreateRenderPass(_renderer->GetVulkanDevice(), &renderPassInfo, nullptr, &shadowFrameBuffer.renderPass));
+
+	std::array<VkImageView, 1> attachments;
+	attachments[0] = shadowFrameBuffer.depth.view;
+
+	VkFramebufferCreateInfo frameBufferCreateInfo = {};
+	frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	frameBufferCreateInfo.pNext = NULL;
+	frameBufferCreateInfo.renderPass = shadowFrameBuffer.renderPass;
+	frameBufferCreateInfo.pAttachments = attachments.data();
+	frameBufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+	frameBufferCreateInfo.width = shadowFrameBuffer.width;
+	frameBufferCreateInfo.height = shadowFrameBuffer.height;
+	frameBufferCreateInfo.layers = 1;
+	vk::tools::ErrorCheck(vkCreateFramebuffer(_renderer->GetVulkanDevice(), &frameBufferCreateInfo, nullptr, &shadowFrameBuffer.frameBuffer));
+
+	//Create color sampler to sample from the color attachments.
+	VkSamplerCreateInfo samplerCreateInfo = {};
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCreateInfo.addressModeV = samplerCreateInfo.addressModeU;
+	samplerCreateInfo.addressModeW = samplerCreateInfo.addressModeU;
+	samplerCreateInfo.mipLodBias = 0.0f;
+	samplerCreateInfo.maxAnisotropy = 1.0f;
+	samplerCreateInfo.minLod = 0.0f;
+	samplerCreateInfo.maxLod = 1.0f;
+	samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	vk::tools::ErrorCheck(vkCreateSampler(_renderer->GetVulkanDevice(), &samplerCreateInfo, nullptr, &shadowSampler));
+
 }
 
 void VisibilityBuffer::GiveImGuiStaticInformation()
@@ -92,13 +179,13 @@ void VisibilityBuffer::PrepareIndirectData()
 void VisibilityBuffer::CreateImGui()
 {
 	imGui = new ImGUIInterface(_renderer);
-	imGui->init((float)_swapChainExtent.width, (float)_swapChainExtent.height);
+	imGui->init((float)_swapChainExtent.width, (float)_swapChainExtent.height, "Visibility Buffer Rendering");
 	imGui->initResources(_renderPass, _renderer->GetVulkanGraphicsQueue());
 }
 
 void VisibilityBuffer::CreateCamera()
 {
-	camera = new Camera(glm::vec3(-2.0f, 2.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), 60.0f, glm::vec2(_swapChainExtent.width, _swapChainExtent.height), 0.1f, 200.0f);
+	camera = new Camera(glm::vec3(-2.0f, 2.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 60.0f, glm::vec2(_swapChainExtent.width, _swapChainExtent.height), 0.1f, 200.0f);
 }
 
 //Destructor
@@ -179,18 +266,22 @@ void VisibilityBuffer::_CreateGeometry()
 	_pointLights.push_back(new vk::wrappers::PointLight());
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 
-	_directionalLights[0]->diffuse = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-	_directionalLights[0]->direction = glm::vec4(1.0f, 2.0f, 0.0f, 1.0f);
-	_directionalLights[0]->specular = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	_directionalLights[0]->diffuse = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+	_directionalLights[0]->direction = glm::vec4(2.0f, 7.0f, 2.0f, 1.0f);
+	_directionalLights[0]->specular = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
 
-	testLightViewMatrix = glm::perspective(glm::radians(100.0f), 1.0f, 1.0f, 64.0f);
-	//ortho(10.0f, -10.0f, -10.0f, 10.0f, 1.0f, 10.0f);
-	glm::mat4 lightView = glm::lookAt(glm::vec3(2.0f, 4.0f, 0.0f),
-		glm::vec3(0.0f, 1.0f, 0.0f),
-		glm::vec3(0.0f, 1.0f, 0.0f));
-	glm::mat4 shadowModel = glm::mat4(1.0f);
-	glm::mat4 lightSpaceMatrix = testLightViewMatrix * lightView * shadowModel;
-	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(glm::mat4), &lightViewMatrixBuffer.buffer, &lightViewMatrixBuffer.memory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &lightSpaceMatrix);
+	//Shadow matrices
+	glm::mat4 testLightViewMatrix = glm::mat4(1.0f);
+	testLightViewMatrix = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, -30.0f, 30.0f);
+	glm::mat4 perspectView = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 60.0f);
+	glm::mat4 lightView = glm::mat4(1.0f);
+	lightView = glm::lookAt(glm::vec3(2.0f, 7.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+	glm::mat4 finalLightMatrix = testLightViewMatrix * lightView * glm::mat4(1.0f);
+
+
+
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(glm::mat4), &lightViewMatrixBuffer.buffer, &lightViewMatrixBuffer.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &finalLightMatrix);
 
 	//Create lights storage buffers to pass to the fragment shader
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _spotLights.size() * sizeof(vk::wrappers::SpotLight), &_spotLightBuffer, &_spotLightBufferMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, *_spotLights.data());
@@ -348,6 +439,107 @@ void VisibilityBuffer::_CreateGraphicsPipeline()
 	blendStateInfo.pAttachments = blendAttachmentStates.data();
 
 	vk::tools::ErrorCheck(vkCreateGraphicsPipelines(_renderer->GetVulkanDevice(), pipelineCache, 1, &pipelineCreateInfo, nullptr, &graphicsPipelines[PipelineType::vbID]));
+
+	_CreateShadowPipeline();
+}
+
+//Creates the shadow map pipeline for shadow rendering
+void VisibilityBuffer::_CreateShadowPipeline()
+{
+
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
+	inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	inputAssemblyInfo.flags = 0;
+	inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+
+	VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {};
+	rasterizerCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterizerCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizerCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterizerCreateInfo.depthClampEnable = VK_FALSE;
+	rasterizerCreateInfo.flags = 0;
+	rasterizerCreateInfo.lineWidth = 1.0f;
+
+	VkPipelineColorBlendAttachmentState colorBlendAttachmentState = {};
+	colorBlendAttachmentState.colorWriteMask = 0xf;
+	colorBlendAttachmentState.blendEnable = VK_FALSE;
+
+	VkPipelineColorBlendStateCreateInfo blendStateInfo = {};
+	blendStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	blendStateInfo.attachmentCount = 1;
+	blendStateInfo.pAttachments = &colorBlendAttachmentState;
+
+	VkPipelineDepthStencilStateCreateInfo depthStencilState = {};
+	depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencilState.depthTestEnable = VK_TRUE;
+	depthStencilState.depthWriteEnable = VK_TRUE;
+	depthStencilState.stencilTestEnable = VK_FALSE;
+	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencilState.depthBoundsTestEnable = VK_FALSE;
+	depthStencilState.minDepthBounds = 0.0f;
+	depthStencilState.maxDepthBounds = 1.0f;
+	depthStencilState.front = {};
+
+
+
+	VkPipelineViewportStateCreateInfo viewportStateInfo = {};
+	viewportStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportStateInfo.scissorCount = 1;
+	viewportStateInfo.viewportCount = 1;
+	viewportStateInfo.flags = 0;
+
+	VkPipelineMultisampleStateCreateInfo multisampleStateInfo = {};
+	multisampleStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampleStateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampleStateInfo.flags = 0;
+	multisampleStateInfo.pSampleMask = 0;
+
+	std::vector<VkDynamicState> dynamicStateEnables = {
+		VK_DYNAMIC_STATE_VIEWPORT,
+		VK_DYNAMIC_STATE_SCISSOR
+	};
+
+	VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
+	dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
+	dynamicStateInfo.pDynamicStates = dynamicStateEnables.data();
+	dynamicStateInfo.flags = 0;
+
+
+	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
+	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
+	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineCreateInfo.layout = _pipelineLayout[PipelineType::shadowMap];
+	pipelineCreateInfo.renderPass = shadowFrameBuffer.renderPass;
+	pipelineCreateInfo.flags = 0;
+	pipelineCreateInfo.basePipelineIndex = -1;
+	pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+	pipelineCreateInfo.pInputAssemblyState = &inputAssemblyInfo;
+	pipelineCreateInfo.pRasterizationState = &rasterizerCreateInfo;
+	pipelineCreateInfo.pColorBlendState = &blendStateInfo;
+	pipelineCreateInfo.pMultisampleState = &multisampleStateInfo;
+	pipelineCreateInfo.pViewportState = &viewportStateInfo;
+	pipelineCreateInfo.pDepthStencilState = &depthStencilState;
+	pipelineCreateInfo.pDynamicState = &dynamicStateInfo;
+	pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
+	pipelineCreateInfo.pStages = shaderStages.data();
+
+
+	//Final Pipeline (after offscreen pass)
+	//Shader loading (Loads shader modules for pipeline)
+	shaderStages[0] = loadShader("Shaders/Deferred/shadow.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = loadShader("Shaders/Deferred/shadow.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+	VkPipelineVertexInputStateCreateInfo emptyVertexInputState = {};
+	emptyVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+	pipelineCreateInfo.pVertexInputState = &vertices.inputState;
+
+	pipelineCreateInfo.layout = _pipelineLayout[PipelineType::shadowMap];
+
+	vk::tools::ErrorCheck(vkCreateGraphicsPipelines(_renderer->GetVulkanDevice(), pipelineCache, 1, &pipelineCreateInfo, nullptr, &graphicsPipelines[PipelineType::shadowMap]));
 }
 
 //Creates and sets up the uniform buffers for the shader passes
@@ -383,16 +575,16 @@ void VisibilityBuffer::_SetUpUniformBuffers()
 		if (i == 0)
 		{
 			*modelMat = glm::mat4(1.0f);
-			*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, -1.0f, 0.0f));
+			*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, -2.0f, 0.0f));
 			//*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			*modelMat = glm::scale(*modelMat, glm::vec3(0.05f, 0.05f, 0.05f));
+			*modelMat = glm::scale(*modelMat, glm::vec3(0.005f, 0.005f, 0.005f));
 		}
-		else if (i == 1)
-		{
-			*modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			*modelMat = glm::rotate(*modelMat, glm::radians(-180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-			*modelMat = glm::scale(*modelMat, glm::vec3(4.0f, 4.0f, 4.0f));
-		}
+		//else if (i == 1)
+		//{
+		//	*modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, 0.0f));
+		//	*modelMat = glm::rotate(*modelMat, glm::radians(-180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		//	*modelMat = glm::scale(*modelMat, glm::vec3(4.0f, 4.0f, 4.0f));
+		//}
 	}
 
 
@@ -416,6 +608,13 @@ void VisibilityBuffer::_SetUpUniformBuffers()
 	IDMatricesVSData.projection = camera->GetProjectionMatrix();
 	//IDMatricesVSData.projection[1][1] *= -1;
 
+	glm::mat4 vp = IDMatricesVSData.projection * IDMatricesVSData.view;
+	glm::mat4 tempInverseVp = glm::inverse(vp);
+
+	inverseVP = tempInverseVp;
+	VisibilityBuffer::_CreateShaderBuffer(_renderer->GetVulkanDevice(), sizeof(glm::mat4), &inverseVPBuffer.buffer, &inverseVPBuffer.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &inverseVP);
+
+
 	void* data;
 	vkMapMemory(_renderer->GetVulkanDevice(), IDMatricesUBOBuffer.memory, 0, sizeof(uboVS), 0, &data);
 	memcpy(data, &IDMatricesVSData, sizeof(uboVS));
@@ -428,11 +627,109 @@ void VisibilityBuffer::UpdateUniformBuffer()
 	IDMatricesVSData.view = camera->GetViewMatrix();
 	IDMatricesVSData.projection = camera->GetProjectionMatrix();
 
+	glm::mat4 vp = camera->GetProjectionMatrix() * camera->GetViewMatrix();
+	glm::mat4 tempInverseVP = glm::inverse(vp);
+	inverseVP = tempInverseVP;
+	//inverseVP = vp;
+
 	void* data;
 	vkMapMemory(_renderer->GetVulkanDevice(), IDMatricesUBOBuffer.memory, 0, sizeof(uboVS), 0, &data);
 	memcpy(data, &IDMatricesVSData, sizeof(uboVS));
 	vkUnmapMemory(_renderer->GetVulkanDevice(), IDMatricesUBOBuffer.memory);
 	IDMatricesUBOBuffer.SetUpDescriptorSet();
+
+
+	void* data2;
+	vkMapMemory(_renderer->GetVulkanDevice(), inverseVPBuffer.memory, 0, sizeof(glm::mat4), 0, &data2);
+	memcpy(data2, &inverseVP, sizeof(glm::mat4));
+	vkUnmapMemory(_renderer->GetVulkanDevice(), inverseVPBuffer.memory);
+
+
+
+}
+
+void VisibilityBuffer::_CreateShadowCommandBuffers()
+{
+	//if the offscreen cmd buffer hasn't been initialised.
+	if (shadowCmdBuffer == VK_NULL_HANDLE)
+	{
+		//Create a single command buffer for the offscreen rendering
+		VkCommandBufferAllocateInfo command_buffer_allocate_info = {};
+		command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		command_buffer_allocate_info.commandPool = _commandPool;
+		command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		command_buffer_allocate_info.commandBufferCount = 1;
+
+		vkAllocateCommandBuffers(_renderer->GetVulkanDevice(), &command_buffer_allocate_info, &shadowCmdBuffer);
+	}
+
+	//Set up semaphore create info
+	VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	//Create a signal semaphore for when the off screen rendering is complete (For pipeline ordering)
+	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &shadowSemaphore));
+
+	//set up cmd buffer begin info
+	VkCommandBufferBeginInfo cmdBufferBeginInfo = {};
+	cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+	//Clear values for attachments in fragment shader
+	std::array<VkClearValue, 1> clearValues;
+	clearValues[0].depthStencil = { 1.0f, 0 };
+
+	//begin to set up the information for the render pass
+	VkRenderPassBeginInfo renderPassBeginInfo = {};
+	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassBeginInfo.framebuffer = shadowFrameBuffer.frameBuffer;
+	renderPassBeginInfo.renderPass = shadowFrameBuffer.renderPass;
+	renderPassBeginInfo.renderArea.extent.width = shadowFrameBuffer.width;
+	renderPassBeginInfo.renderArea.extent.height = shadowFrameBuffer.height;
+	renderPassBeginInfo.clearValueCount = 0;
+	renderPassBeginInfo.pClearValues = nullptr;
+	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassBeginInfo.pClearValues = clearValues.data();
+
+
+	//begin command buffer and start the render pass
+	vk::tools::ErrorCheck(vkBeginCommandBuffer(shadowCmdBuffer, &cmdBufferBeginInfo));
+	vkCmdBeginRenderPass(shadowCmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	VkViewport viewport = {};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = (float)shadowFrameBuffer.width;
+	viewport.height = (float)shadowFrameBuffer.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(shadowCmdBuffer, 0, 1, &viewport);
+
+	VkRect2D scissor = {};
+	scissor.extent.width = shadowFrameBuffer.width;
+	scissor.extent.height = shadowFrameBuffer.height;
+	scissor.offset = { 0,0 };
+	vkCmdSetScissor(shadowCmdBuffer, 0, 1, &scissor);
+	vkCmdBindPipeline(shadowCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::shadowMap]);
+	VkDeviceSize offsets[1] = { 0 };
+
+	//Loop for each model in our scene
+	for (size_t i = 0; i < _models.size(); i++)
+	{
+		//Dynamic offset to get the correct model matrix from the dynamic buffer
+		uint32_t dynamicOffset = i * static_cast<uint32_t>(dynamicAlignment);
+		//binding descriptor sets and drawing model on the screen
+		vkCmdBindDescriptorSets(shadowCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::shadowMap], 0, 1, &shadowDescriptorSet, 1, &dynamicOffset);
+		vkCmdBindVertexBuffers(shadowCmdBuffer, 0, 1, &_models[i]->model->GetVertexBuffer()->buffer, offsets);
+		vkCmdBindIndexBuffer(shadowCmdBuffer, _models[i]->model->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(shadowCmdBuffer, _models[i]->model->GetIndexCount(), 1, 0, 0, 0);
+	}
+
+
+	vkCmdEndRenderPass(shadowCmdBuffer);
+
+	//End the command buffer drawing
+	vk::tools::ErrorCheck(vkEndCommandBuffer(shadowCmdBuffer));
+
 }
 
 //Creates visibility buffer attachments for the first render pass 
@@ -441,7 +738,7 @@ void VisibilityBuffer::CreateVBuffer()
 	IDFrameBuffer.width = _swapChainExtent.width;
 	IDFrameBuffer.height = _swapChainExtent.height;
 
-	_CreateAttachment(VK_FORMAT_R16G16B16_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &IDFrameBuffer.VID, IDFrameBuffer);
+	_CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &IDFrameBuffer.VID, IDFrameBuffer);
 	
 	//Find Depth Format
 	VkFormat DepthFormat;
@@ -875,10 +1172,31 @@ void VisibilityBuffer::_CreateDescriptorSets()
 	material_data_info.offset = 0;
 	material_data_info.range = static_cast<uint32_t>(materialIDs.size()) * sizeof(materialInfo);
 
+	VkDescriptorBufferInfo directional_light_info = {};
+	directional_light_info.buffer = _directionalLightBuffer;
+	directional_light_info.offset = 0;
+	directional_light_info.range = static_cast<uint32_t>(_directionalLights.size()) * sizeof(vk::wrappers::DirectionalLight);
+
+	VkDescriptorImageInfo shadow_map_image_info = {};
+	shadow_map_image_info.sampler = shadowSampler;
+	shadow_map_image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	shadow_map_image_info.imageView = shadowFrameBuffer.depth.view;
+
+
+	VkDescriptorBufferInfo inverse_matrix_buffer_info = {};
+	inverse_matrix_buffer_info.buffer = inverseVPBuffer.buffer;
+	inverse_matrix_buffer_info.offset = 0;
+	inverse_matrix_buffer_info.range = sizeof(glm::mat4);
+
+	VkDescriptorBufferInfo light_matrix_shade_buffer_info = {};
+	light_matrix_shade_buffer_info.buffer = lightViewMatrixBuffer.buffer;
+	light_matrix_shade_buffer_info.offset = 0;
+	light_matrix_shade_buffer_info.range = sizeof(glm::mat4);
+
 
 	std::vector<VkWriteDescriptorSet> compDescriptorWritesModel;
 	//Binding 0: Vertex Shader UBO
-	compDescriptorWritesModel.resize(7);
+	compDescriptorWritesModel.resize(11);
 	compDescriptorWritesModel[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	compDescriptorWritesModel[0].dstSet = compositionDescriptorSet;
 	compDescriptorWritesModel[0].dstBinding = 0;
@@ -942,8 +1260,116 @@ void VisibilityBuffer::_CreateDescriptorSets()
 	compDescriptorWritesModel[6].pImageInfo = 0;
 	compDescriptorWritesModel[6].pBufferInfo = &material_data_info;
 
+	compDescriptorWritesModel[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	compDescriptorWritesModel[7].dstSet = compositionDescriptorSet;
+	compDescriptorWritesModel[7].dstBinding = 7;
+	compDescriptorWritesModel[7].dstArrayElement = 0;
+	compDescriptorWritesModel[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	compDescriptorWritesModel[7].descriptorCount = 1;
+	compDescriptorWritesModel[7].pImageInfo = 0;
+	compDescriptorWritesModel[7].pBufferInfo = &directional_light_info;
+
+	compDescriptorWritesModel[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	compDescriptorWritesModel[8].dstSet = compositionDescriptorSet;
+	compDescriptorWritesModel[8].dstBinding = 8;
+	compDescriptorWritesModel[8].dstArrayElement = 0;
+	compDescriptorWritesModel[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	compDescriptorWritesModel[8].descriptorCount = 1;
+	compDescriptorWritesModel[8].pImageInfo = &shadow_map_image_info;
+	compDescriptorWritesModel[8].pBufferInfo = 0;
+
+	compDescriptorWritesModel[9].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	compDescriptorWritesModel[9].dstSet = compositionDescriptorSet;
+	compDescriptorWritesModel[9].dstBinding = 9;
+	compDescriptorWritesModel[9].dstArrayElement = 0;
+	compDescriptorWritesModel[9].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	compDescriptorWritesModel[9].descriptorCount = 1;
+	compDescriptorWritesModel[9].pImageInfo = 0;
+	compDescriptorWritesModel[9].pBufferInfo = &inverse_matrix_buffer_info;
+
+
+	compDescriptorWritesModel[10].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	compDescriptorWritesModel[10].dstSet = compositionDescriptorSet;
+	compDescriptorWritesModel[10].dstBinding = 10;
+	compDescriptorWritesModel[10].dstArrayElement = 0;
+	compDescriptorWritesModel[10].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	compDescriptorWritesModel[10].descriptorCount = 1;
+	compDescriptorWritesModel[10].pImageInfo = 0;
+	compDescriptorWritesModel[10].pBufferInfo = &light_matrix_shade_buffer_info;
+
 
 	vkUpdateDescriptorSets(_renderer->GetVulkanDevice(), static_cast<uint32_t>(compDescriptorWritesModel.size()), compDescriptorWritesModel.data(), 0, nullptr);
+
+
+
+
+
+
+	//shadow maps
+	//
+	//
+	//Shadow Descriptor Set alloc info
+	VkDescriptorSetAllocateInfo shadowDescSetAllocInfo = {};
+	shadowDescSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	shadowDescSetAllocInfo.descriptorPool = _descriptorPool;
+	shadowDescSetAllocInfo.descriptorSetCount = 1;
+	shadowDescSetAllocInfo.pSetLayouts = &shadowDescriptorSetLayout;
+
+	vk::tools::ErrorCheck(vkAllocateDescriptorSets(_renderer->GetVulkanDevice(), &shadowDescSetAllocInfo, &shadowDescriptorSet));
+
+	VkDescriptorBufferInfo shadow_ubo_buffer_info = {};
+	shadow_ubo_buffer_info.buffer = IDMatricesUBOBuffer.buffer;
+	shadow_ubo_buffer_info.offset = 0;
+	shadow_ubo_buffer_info.range = sizeof(uboVS);
+
+	VkDescriptorBufferInfo dynamic_buffer_info = {};
+	dynamic_buffer_info.buffer = dynamicUboBuffer.buffer;
+	dynamic_buffer_info.offset = 0;
+	dynamic_buffer_info.range = sizeof(glm::mat4);
+
+	VkDescriptorBufferInfo light_matrix_buffer_info = {};
+	light_matrix_buffer_info.buffer = lightViewMatrixBuffer.buffer;
+	light_matrix_buffer_info.offset = 0;
+	light_matrix_buffer_info.range = sizeof(glm::mat4);
+
+
+
+	std::vector<VkWriteDescriptorSet> shadow_descriptor_writes_model;
+	//Binding 0: Vertex Shader UBO
+	shadow_descriptor_writes_model.resize(3);
+	shadow_descriptor_writes_model[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	shadow_descriptor_writes_model[0].dstSet = shadowDescriptorSet;
+	shadow_descriptor_writes_model[0].dstBinding = 0;
+	shadow_descriptor_writes_model[0].dstArrayElement = 0;
+	shadow_descriptor_writes_model[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	shadow_descriptor_writes_model[0].descriptorCount = 1;
+	shadow_descriptor_writes_model[0].pImageInfo = 0;
+	shadow_descriptor_writes_model[0].pBufferInfo = &shadow_ubo_buffer_info;
+
+	shadow_descriptor_writes_model[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	shadow_descriptor_writes_model[1].dstSet = shadowDescriptorSet;
+	shadow_descriptor_writes_model[1].dstBinding = 1;
+	shadow_descriptor_writes_model[1].dstArrayElement = 0;
+	shadow_descriptor_writes_model[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	shadow_descriptor_writes_model[1].descriptorCount = 1;
+	shadow_descriptor_writes_model[1].pImageInfo = 0;
+	shadow_descriptor_writes_model[1].pBufferInfo = &dynamic_buffer_info;
+
+	shadow_descriptor_writes_model[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	shadow_descriptor_writes_model[2].dstSet = shadowDescriptorSet;
+	shadow_descriptor_writes_model[2].dstBinding = 2;
+	shadow_descriptor_writes_model[2].dstArrayElement = 0;
+	shadow_descriptor_writes_model[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	shadow_descriptor_writes_model[2].descriptorCount = 1;
+	shadow_descriptor_writes_model[2].pImageInfo = 0;
+	shadow_descriptor_writes_model[2].pBufferInfo = &light_matrix_buffer_info;
+
+
+	vkUpdateDescriptorSets(_renderer->GetVulkanDevice(), static_cast<uint32_t>(shadow_descriptor_writes_model.size()), shadow_descriptor_writes_model.data(), 0, nullptr);
+
+
+
+
 
 }
 
@@ -1045,7 +1471,36 @@ void VisibilityBuffer::_CreateDescriptorSetLayout()
 	material_data_layout_binding.descriptorCount = 1;
 	material_data_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	std::vector<VkDescriptorSetLayoutBinding> compDescriptorSetLayoutBindings = { ubo_shade_layout_binding, chalet_texture_layout_binding, ID_texture_layout_binding, index_buffer_layout_binding, vertex_buffer_layout_binding, start_vertex_layout_binding, material_data_layout_binding };
+	//Position layout binding (deferred offscreen buffer sampler)
+	VkDescriptorSetLayoutBinding directional_light_layout_binding = {};
+	directional_light_layout_binding.binding = 7;
+	directional_light_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	directional_light_layout_binding.descriptorCount = 1;
+	directional_light_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	//Visibility Buffer texture layout binding
+	VkDescriptorSetLayoutBinding shadow_map_layout_binding = {};
+	shadow_map_layout_binding.binding = 8;
+	shadow_map_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	shadow_map_layout_binding.descriptorCount = 1;
+	shadow_map_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	//Visibility Buffer texture layout binding
+	VkDescriptorSetLayoutBinding inverse_matrix_layout_binding = {};
+	inverse_matrix_layout_binding.binding = 9;
+	inverse_matrix_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	inverse_matrix_layout_binding.descriptorCount = 1;
+	inverse_matrix_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	//Visibility Buffer texture layout binding
+	VkDescriptorSetLayoutBinding light_matrix_layout_binding = {};
+	light_matrix_layout_binding.binding = 10;
+	light_matrix_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	light_matrix_layout_binding.descriptorCount = 1;
+	light_matrix_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+
+	std::vector<VkDescriptorSetLayoutBinding> compDescriptorSetLayoutBindings = { ubo_shade_layout_binding, chalet_texture_layout_binding, ID_texture_layout_binding, index_buffer_layout_binding, vertex_buffer_layout_binding, start_vertex_layout_binding, material_data_layout_binding, directional_light_layout_binding, shadow_map_layout_binding, inverse_matrix_layout_binding, light_matrix_layout_binding };
 	VkDescriptorSetLayoutCreateInfo compDescriptorLayoutCreateInfo = {};
 	compDescriptorLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	compDescriptorLayoutCreateInfo.pBindings = compDescriptorSetLayoutBindings.data();
@@ -1060,6 +1515,57 @@ void VisibilityBuffer::_CreateDescriptorSetLayout()
 	compPipelineLayoutCreateInfo.setLayoutCount = 1;
 	
 	vk::tools::ErrorCheck(vkCreatePipelineLayout(_renderer->GetVulkanDevice(), &compPipelineLayoutCreateInfo, nullptr, &_pipelineLayout[PipelineType::vbShade]));
+
+
+
+
+
+
+
+
+
+
+	//shadow layout
+	//binding for the View and projection matrix
+	VkDescriptorSetLayoutBinding shadow_ubo_layout_binding = {};
+	shadow_ubo_layout_binding.binding = 0;
+	shadow_ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	shadow_ubo_layout_binding.descriptorCount = 1;
+	shadow_ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	//Dynamic Model layout binding for the model matrices
+	VkDescriptorSetLayoutBinding shadow_dynamic_model_layout_binding = {};
+	shadow_dynamic_model_layout_binding.binding = 1;
+	shadow_dynamic_model_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	shadow_dynamic_model_layout_binding.descriptorCount = 1;
+	shadow_dynamic_model_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	//binding for the View and projection matrix
+	VkDescriptorSetLayoutBinding light_ubo_matrix_layout_binding = {};
+	light_ubo_matrix_layout_binding.binding = 2;
+	light_ubo_matrix_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	light_ubo_matrix_layout_binding.descriptorCount = 1;
+	light_ubo_matrix_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+
+	std::vector<VkDescriptorSetLayoutBinding> shadowDescriptorSetLayoutBindings = { shadow_ubo_layout_binding, shadow_dynamic_model_layout_binding, light_ubo_matrix_layout_binding };
+	VkDescriptorSetLayoutCreateInfo shadowDescriptorLayoutCreateInfo = {};
+	shadowDescriptorLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	shadowDescriptorLayoutCreateInfo.pBindings = shadowDescriptorSetLayoutBindings.data();
+	shadowDescriptorLayoutCreateInfo.bindingCount = static_cast<uint32_t>(shadowDescriptorSetLayoutBindings.size());
+	shadowDescriptorLayoutCreateInfo.flags = 0;
+
+	vk::tools::ErrorCheck(vkCreateDescriptorSetLayout(_renderer->GetVulkanDevice(), &shadowDescriptorLayoutCreateInfo, nullptr, &shadowDescriptorSetLayout));
+
+	VkPipelineLayoutCreateInfo shadowPipelineLayoutCreateInfo = {};
+	shadowPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	shadowPipelineLayoutCreateInfo.pSetLayouts = &shadowDescriptorSetLayout;
+	shadowPipelineLayoutCreateInfo.setLayoutCount = 1;
+
+	vk::tools::ErrorCheck(vkCreatePipelineLayout(_renderer->GetVulkanDevice(), &shadowPipelineLayoutCreateInfo, nullptr, &_pipelineLayout[PipelineType::shadowMap]));
+
+
+
 }
 
 //Update per frame, drawing and polling glfw windows for changes
@@ -1109,8 +1615,8 @@ void VisibilityBuffer::Update()
 			//Flip between true and false
 			cameraUpdate == true ? cameraUpdate = false : cameraUpdate = true;
 		}
-
-		imGui->uiSettings.modelName = "Model: Penguin";
+		
+		imGui->uiSettings.modelName = "Model: Sponza Crytek";
 
 		imGui->UpdateImGuiInformation(cameraUpdate);
 	}
@@ -1155,7 +1661,21 @@ void VisibilityBuffer::DrawFrame()
 	frameTimeMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 	//// Scene rendering
 	//// Wait for offscreen semaphore
+
+
+
 	submitInfo.pWaitSemaphores = &IDPassSemaphore;
+	submitInfo.pSignalSemaphores = &shadowSemaphore;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &shadowCmdBuffer;
+	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+
+
+
+
+
+	submitInfo.pWaitSemaphores = &shadowSemaphore;
+
 	//// Signal ready with render complete semaphpre
 	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;
 	//

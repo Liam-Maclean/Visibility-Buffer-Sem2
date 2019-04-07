@@ -9,6 +9,9 @@
 #include "ImGUIInterface.h"
 #include <chrono>
 
+#define TEX_DIMENSIONS 4096;
+
+
 class VisibilityBuffer :
 	public VulkanWindow
 {
@@ -25,6 +28,7 @@ public:
 		glm::mat4 model;
 		glm::mat4 view;
 	};
+
 	struct materialInfo {
 		uint32_t materialID;
 		uint32_t padding1;
@@ -68,6 +72,8 @@ public:
 		VkDescriptorSetLayout compositionLayout;
 	}descriptorSetLayouts;
 
+
+	void CreateShadowRenderPass();
 	void GiveImGuiStaticInformation();
 	void PrepareIndirectData();
 	void CreateImGui();
@@ -78,6 +84,7 @@ public:
 	void _CreateShaderBuffer(VkDevice device, VkDeviceSize size, VkBuffer * buffer, VkDeviceMemory* memory, VkBufferUsageFlagBits bufferStage, void* data);
 	void _SetUpUniformBuffers();
 	void UpdateUniformBuffer();
+	void _CreateShadowCommandBuffers();
 	void _CreateVIDCommandBuffers();
 	void _CreateVertexFilteringCommandBuffers();
 	void _CreateCommandBuffers() override;
@@ -88,7 +95,7 @@ public:
 	void Update() override;
 	void DrawFrame() override;
 	void _CreateGraphicsPipeline() override;
-
+	void _CreateShadowPipeline();
 
 	ImGUIInterface *imGui = nullptr;
 
@@ -112,20 +119,29 @@ public:
 	vk::wrappers::Buffer materialIDBuffer;
 	vk::wrappers::Buffer vertexStartBuffer;
 
+	vk::wrappers::Buffer inverseVPBuffer;
+
 
 	std::vector<Vertex> sceneVertices;
 	std::vector<uint32_t> sceneIndices;
 
+	VkDescriptorSetLayout shadowDescriptorSetLayout;
+	VkDescriptorSet shadowDescriptorSet;
+	vk::wrappers::ShadowFrameBuffer shadowFrameBuffer;
 
 	vertice vertices;
 	uboVS IDMatricesVSData;
 	vk::wrappers::Buffer IDMatricesUBOBuffer;
 	vk::wrappers::VFrameBuffer IDFrameBuffer;
 	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage);
-	VkSampler colorSampler;
 
+
+	VkSampler colorSampler;
+	VkSampler shadowSampler;
 
 	VkCommandBuffer IDCmdBuffer = VK_NULL_HANDLE;
+	VkCommandBuffer shadowCmdBuffer = VK_NULL_HANDLE;
+
 
 	VkDescriptorSet IDDescriptorSet;
 	VkDescriptorSet compositionDescriptorSet;
@@ -134,6 +150,7 @@ public:
 
 	VkSemaphore presentCompleteSemaphore = VK_NULL_HANDLE;
 	VkSemaphore renderCompleteSemaphore = VK_NULL_HANDLE;
+	VkSemaphore shadowSemaphore = VK_NULL_HANDLE;
 	VkSemaphore offScreenSemaphore = VK_NULL_HANDLE;
 	VkSemaphore IDPassSemaphore = VK_NULL_HANDLE;
 
@@ -142,6 +159,9 @@ public:
 	std::vector<vertexArgs> startVertex;
 
 	uint32_t indirectDrawCount;
+
+	glm::mat4 inverseVP;
+
 
 	double frameTimeMRT;
 	double frameTimeShading;

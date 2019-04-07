@@ -10,6 +10,7 @@ public:
 
 	struct UISettings {
 
+		std::string windowTitle = "";
 		std::string modelName = "Model: ";
 		bool displayModels = true;
 		bool cameraActive = false;
@@ -33,7 +34,7 @@ public:
 	ImGUIInterface(Renderer* renderer);
 	~ImGUIInterface();
 
-	void init(float width, float height);
+	void init(float width, float height, std::string title);
 	void initResources(VkRenderPass renderPass, VkQueue copyQueue);
 	void newFrame(double frameTimerMRT, double frameTimerShading, bool updateFrameGraph);
 	void UpdateImGuiInformation(bool cameraActive);

@@ -11,8 +11,10 @@ ImGUIInterface::~ImGUIInterface()
 	ImGui::DestroyContext();
 }
 
-void ImGUIInterface::init(float width, float height)
+void ImGUIInterface::init(float width, float height, std::string title)
 {
+
+	uiSettings.windowTitle = title;
 	// Color scheme
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.Colors[ImGuiCol_TitleBg] = ImVec4(0.0f, 0.0f, 1.0f, 0.6f);
@@ -410,7 +412,7 @@ void ImGUIInterface::newFrame(double frameTimerMRT, double frameTimerShading,  b
 		}
 	}
 
-	ImGui::Begin("Vulkan Deferred Rendering settings");
+	ImGui::Begin(uiSettings.windowTitle.c_str());
 
 	ImGui::Checkbox("Render models", &uiSettings.displayModels);
 	ImGui::Text(cameraActive.c_str());

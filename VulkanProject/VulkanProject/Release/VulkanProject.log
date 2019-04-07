@@ -1,13 +1,13 @@
 ﻿  VisibilityBuffer.cpp
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(30): warning C4018: '<': signed/unsigned mismatch
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(145): warning C4018: '<': signed/unsigned mismatch
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(357): warning C4244: 'initializing': conversion from 'const VkDeviceSize' to '::size_t', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1085): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1155): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1170): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(117): warning C4018: '<': signed/unsigned mismatch
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(232): warning C4018: '<': signed/unsigned mismatch
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(549): warning C4244: 'initializing': conversion from 'const VkDeviceSize' to '::size_t', possible loss of data
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1591): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1661): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+m:\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1690): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
   Generating code
-  1 of 4937 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+  4 of 4961 functions ( 0.1%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    2 functions had inline decision re-evaluated but remain unchanged
+    3 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
-  VulkanProject.vcxproj -> \\StuHome\HomeDrive5$\1503395\GitHub\Visibility-Buffer-Sem2\VulkanProject\Release\VulkanProject.exe
+  VulkanProject.vcxproj -> M:\GitHub\Visibility-Buffer-Sem2\VulkanProject\Release\VulkanProject.exe

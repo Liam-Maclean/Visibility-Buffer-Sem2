@@ -68,6 +68,8 @@ float depthLinearization(float depth, float near, float far)
 	return (2.0 * near) / (far + near - depth * (far - near));
 }
 
+
+//STRUCTS FOR STORAGE BUFFERS
 struct vertex
 {
 	vec4 position;
@@ -76,20 +78,29 @@ struct vertex
 	vec4 padding;
 };
 
+struct materialInfo{
+	uint materialID;
+	uint padding1;
+};
+
+struct indexData{
+	uint vertexStart;
+	uint padding;
+};
+
+struct directionalLight
+{
+	vec4 direction;
+	vec4 diffuse;
+	vec4 specular;
+};
+
 layout (binding = 0) uniform UBO 
 {
 	mat4 projection;
 	mat4 model;
 	mat4 view;
 } ubo;
-
-struct materialInfo{
-	uint materialID;
-	uint padding1;
-	uint padding2;
-	uint padding3;
-};
-
 
 layout (binding = 1) uniform sampler2D inTexture[25];
 layout (binding = 2) uniform sampler2D inVBTexture;
@@ -105,7 +116,7 @@ layout (std430, binding = 4) readonly buffer vertexPosition
 
 layout (std430, binding = 5) readonly buffer startIndex
 {
-	uint indirectArgsData[];
+	indexData indirectArgsData[];
 };
 
 layout (std430, binding = 6) readonly buffer materialID
@@ -113,8 +124,29 @@ layout (std430, binding = 6) readonly buffer materialID
 	materialInfo indirectMaterialIDData[];
 };
 
+layout (std430, binding = 7) readonly buffer directionalLightBuffer
+{
+	directionalLight directionalLightData[];
+};
+
+layout (binding = 8) uniform sampler2D inShadowMapTexture;
+
+layout (binding = 9) uniform InverseMatrices
+{
+	mat4 inverseVP;
+}inverseMatrices;
+
+layout (binding = 10) uniform LightMatrices
+{
+	mat4 lightVP;
+}lightMatrices;
+
+
+
 layout (location = 0) in vec2 inScreenPos;
 layout (location = 0) out vec4 outColor;
+
+
 
 void main()
 {
@@ -124,17 +156,16 @@ void main()
     //// Unpack float4 render target data into uint to extract data
     uint alphaBit_drawID_triID = packUnorm4x8(visRaw);
 	
-	
 	vec3 shadedColor = vec3(1.0f, 1.0f, 1.0f);
     //// Early exit if this pixel doesn't contain triangle data
 	if (alphaBit_drawID_triID != 0)
 	{
 		// Extract packed data
-		uint drawID = (alphaBit_drawID_triID >> 23) & 0x000000FF;
-		uint triangleID = (alphaBit_drawID_triID & 0x007FFFFF);
+		uint drawID = (alphaBit_drawID_triID >> 19);
+		uint triangleID = (alphaBit_drawID_triID & 0x0000FFFF);
 		uint alpha1_opaque0 = (alphaBit_drawID_triID >> 31);
     
-		uint startIndex = indirectArgsData[drawID];
+		uint startIndex = indirectArgsData[drawID].vertexStart;
 		uint triIdx0 = (triangleID * 3 + 0) + startIndex;
 		uint triIdx1 = (triangleID * 3 + 1) + startIndex;
 		uint triIdx2 = (triangleID * 3 + 2) + startIndex;
@@ -177,6 +208,10 @@ void main()
 		// operations that involve computing Z
 		float z = w * ubo.projection[2][2] + ubo.projection[3][2];
 	
+	
+		//Get world position coordinates of the position vector
+		vec4 position = (inverseMatrices.inverseVP * vec4(inScreenPos * w, z, w));
+	
 		// TEXTURE COORD INTERPOLATION
 		vec2 texCoordFlipped0 = vertexPosData[index0].color.xy;
 		texCoordFlipped0.y = 1.0 - texCoordFlipped0.y;
@@ -209,17 +244,71 @@ void main()
 	
 		uint materialIDValue = indirectMaterialIDData[drawID].materialID;
 		
-		vec4 textureMap = texture(inTexture[materialIDValue], texCoord);
 		vec4 textureGradient = textureGrad(inTexture[materialIDValue], texCoord, texCoordDX, texCoordDY);
 
-		//float drawIDFloat = float(drawID);
-		//drawIDFloat = drawIDFloat / 1000;
-		//vec4 tempOut = vec4(materialIDValue,materialIDValue,materialIDValue,materialIDValue);
 		
+		// Load normals
+		vec3 v0normal = vec3(vertexPosData[index0].normal.x, vertexPosData[index0].normal.y, vertexPosData[index0].normal.z);
+		vec3 v1normal = vec3(vertexPosData[index1].normal.x, vertexPosData[index1].normal.y, vertexPosData[index1].normal.z);
+		vec3 v2normal = vec3(vertexPosData[index2].normal.x, vertexPosData[index2].normal.y, vertexPosData[index2].normal.z);
+		
+		mat3x3 normals =
+		{
+
+			v0normal * one_over_w[0],
+			v1normal * one_over_w[1],
+			v2normal * one_over_w[2]
+		};
+		
+		vec3 normal = normalize(interpolateAttribute(normals, derivativesOut.db_dx, derivativesOut.db_dy, d));
+		
+		vec4 ambientColor = vec4(0.5f, 0.5f, 0.5f, 1.0f);
+		vec3 diffuseComponent = vec3(0.0f, 0.0f, 0.0f);
+		vec4 lightDir;
+		float lightIntensity;
+		
+		//DIRECTIONAL LIGHTS
+		for(int i = 0; i < 1; i++)
+		{
+			//Test lighting for a single directional light structure
+			lightDir = directionalLightData[i].direction;
+		
+		
+			//get light intensity of the dot product of the normal and light direction
+			lightIntensity = max(dot(normal, lightDir.xyz), 0.0f);
+		
+		
+		
+			//if the pixel is lit
+			if (lightIntensity > 0.0f)
+			{
+				diffuseComponent += (directionalLightData[i].diffuse.xyz * lightIntensity);
+			}
+		}
+		
+		for(int i = 0; i < 1; i++)
+		{
+			vec4 fragPosInvertY = position;
+			fragPosInvertY.y = -fragPosInvertY.y;
+			
+			vec4 shadowClip = lightMatrices.lightVP * vec4(fragPosInvertY.xyz, 1.0);
+			
+			float shadow = 1.0;
+			vec3 shadowCoord = shadowClip.xyz / shadowClip.w;
+			shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
+			float dist = texture(inShadowMapTexture, vec2(shadowCoord.st)).r;
+			if (dist < shadowCoord.z - 0.005f) 
+			{
+				shadow = 0.1f;
+			}
+			
+			diffuseComponent *= shadow;
+		}
 	
-		outColor = vec4(textureGradient.xyz, 1);
 		
-		//outColor = tempOut;
+		vec3 outVec3Color = (ambientColor.xyz + diffuseComponent.xyz) * textureGradient.xyz; 
+		//outColor = vec4(ambientColor.xyz + diffuseComponent.xyz) * 
+		outColor = vec4(outVec3Color, 1);
 	}
 	else 
 	{

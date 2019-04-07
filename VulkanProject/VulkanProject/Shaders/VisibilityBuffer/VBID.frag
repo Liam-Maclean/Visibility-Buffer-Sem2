@@ -2,7 +2,7 @@
 
 uint calculateOutputVBID(bool opaque, uint drawID, uint primitiveID)
 {
-	uint drawID_primID = ((drawID << 23) & 0x7F800000) | (primitiveID & 0x007FFFFF);
+	uint drawID_primID = ((drawID << 19)) | (primitiveID);
 	return (opaque) ? drawID_primID : (1 << 31) | drawID_primID;
 }
 
