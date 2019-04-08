@@ -74,6 +74,7 @@ public:
 
 
 	void CreateShadowRenderPass();
+	void CreateQueryPools();
 	void GiveImGuiStaticInformation();
 	void PrepareIndirectData();
 	void CreateImGui();
@@ -121,6 +122,16 @@ public:
 
 	vk::wrappers::Buffer inverseVPBuffer;
 
+	VkQueryPool VBIDQueryPool;
+	VkQueryPool VBShadeQueryPool;
+
+	//void* vbIDData;
+	uint32_t VBIDQueryResultStart;
+	uint32_t VBIDQueryResultEnd;
+
+	double timeElapsedTest;
+	double VBIDResultNanoSecondsStart;
+	double VBIDResultNanoSecondsEnd;
 
 	std::vector<Vertex> sceneVertices;
 	std::vector<uint32_t> sceneIndices;
@@ -159,6 +170,8 @@ public:
 	std::vector<vertexArgs> startVertex;
 
 	uint32_t indirectDrawCount;
+	uint32_t drawModeValue;
+
 
 	glm::mat4 inverseVP;
 

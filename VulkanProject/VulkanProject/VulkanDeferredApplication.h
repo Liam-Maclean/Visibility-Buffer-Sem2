@@ -135,6 +135,8 @@ public:
 
 	VkQueryPool queryPool;
 
+	uint32_t drawModeValue;
+
 	bool LeftMouseDown = true;
 	bool cameraUpdate = false;
 

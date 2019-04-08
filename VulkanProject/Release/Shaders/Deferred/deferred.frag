@@ -29,6 +29,12 @@ struct directionalLight
 	vec4 specular;
 };
 
+
+layout (push_constant) uniform PushConstants {
+	uint drawModeID;
+} pushConstants;
+
+
 //In
 //attribute locations
 layout (location = 0) in vec2 inUV;
@@ -71,6 +77,8 @@ layout (location = 0) out vec4 outFragColor;
 //Main section of the shader
 void main() 
 {
+
+	
 	float specularStrength = 0.1f;
 	//temporary variables
 	vec4 ambientColor = vec4(0.5f, 0.5f, 0.5f, 1.0f);
@@ -86,34 +94,106 @@ void main()
 	float shadow = 1.0f;
 	
 	
-	normal = normalize(normal);
-	
-	//DIRECTIONAL LIGHTS
-	for(int i = 0; i < 1; i++)
+	//output the position screen draw
+	if(pushConstants.drawModeID == 1)
 	{
-		//Test lighting for a single directional light structure
-		lightDir = directionalLightData[i].direction;
-		
-		
-		//get light intensity of the dot product of the normal and light direction
-		lightIntensity = max(dot(normal, lightDir.xyz), 0.0f);
-		
-		
-		
-		//if the pixel is lit
-		if (lightIntensity > 0.0f)
-		{
-			vec4 viewDir = normalize(camera.eye - fragPos);
-			vec3 reflectDir = reflect(-lightDir.xyz, normal);
-			float spec = pow(max(dot(viewDir.xyz, reflectDir), 0.0), 32);
-			vec3 specular = specularStrength * spec * directionalLightData[i].diffuse.xyz;  
-			
-			
-			diffuseComponent += (directionalLightData[i].diffuse.xyz * lightIntensity);
-			//diffuseComponent = normalize(diffuseComponent);
-		}
+		outFragColor = fragPos;
 	}
+	//output the normal screen draw
+	else if (pushConstants.drawModeID == 2)
+	{
+		outFragColor = vec4(normal.xyz, 1.0f);
+	}
+	//output the albedo screen draw
+	else if (pushConstants.drawModeID == 3)
+	{
+		outFragColor = albedo;
+	}
+	else if (pushConstants.drawModeID == 4)
+	{
+		outFragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	//output as normal doing lighting and shadows
+	else
+	{
+		normal = normalize(normal);
 	
+		//DIRECTIONAL LIGHTS
+		for(int i = 0; i < 1; i++)
+		{
+			//Test lighting for a single directional light structure
+			lightDir = directionalLightData[i].direction;
+			
+			
+			//get light intensity of the dot product of the normal and light direction
+			lightIntensity = max(dot(normal, lightDir.xyz), 0.0f);
+			
+			
+			
+			//if the pixel is lit
+			if (lightIntensity > 0.0f)
+			{
+				vec4 viewDir = normalize(camera.eye - fragPos);
+				vec3 reflectDir = reflect(-lightDir.xyz, normal);
+				float spec = pow(max(dot(viewDir.xyz, reflectDir), 0.0), 32);
+				vec3 specular = specularStrength * spec * directionalLightData[i].diffuse.xyz;  
+				
+				
+				diffuseComponent += (directionalLightData[i].diffuse.xyz * lightIntensity);
+				//diffuseComponent = normalize(diffuseComponent);
+			}
+		}
+		
+		for(int i = 0; i < 1; i++)
+		{
+			vec4 fragPosInvertY = fragPos;
+			fragPosInvertY.y = -fragPosInvertY.y;
+		
+			vec4 shadowClip = lightMatrix.matrix * vec4(fragPosInvertY.xyz, 1.0);
+			
+			float shadow = 1.0;
+			vec3 shadowCoord = shadowClip.xyz / shadowClip.w;
+			shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
+			float dist = texture(shadowMapTexture, vec2(shadowCoord.st)).r;
+			if (dist < shadowCoord.z - 0.005f) 
+			{
+				shadow = 0.1f;
+			}
+			
+			diffuseComponent *= shadow;
+		}
+	
+		vec3 outColor = (ambientColor.xyz + diffuseComponent.xyz + specular.xyz) * albedo.xyz;
+		outFragColor = vec4(outColor.xyz, 1.0);
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	//for(int i = 0; i < 1; i++)
 	//{
 	//	vec3 lightDir = normalize(pointLightData[i].position.xyz - fragPos.xyz);
@@ -143,25 +223,3 @@ void main()
 	//	}
 	//}
 	//
-	for(int i = 0; i < 1; i++)
-	{
-		vec4 fragPosInvertY = fragPos;
-		fragPosInvertY.y = -fragPosInvertY.y;
-	
-		vec4 shadowClip = lightMatrix.matrix * vec4(fragPosInvertY.xyz, 1.0);
-		
-		float shadow = 1.0;
-		vec3 shadowCoord = shadowClip.xyz / shadowClip.w;
-		shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
-		float dist = texture(shadowMapTexture, vec2(shadowCoord.st)).r;
-		if (dist < shadowCoord.z - 0.005f) 
-		{
-			shadow = 0.1f;
-		}
-		
-		diffuseComponent *= shadow;
-	}
-
-	vec3 outColor = (ambientColor.xyz + diffuseComponent.xyz + specular.xyz) * albedo.xyz;
-	outFragColor = vec4(outColor.xyz, 1.0);
-}

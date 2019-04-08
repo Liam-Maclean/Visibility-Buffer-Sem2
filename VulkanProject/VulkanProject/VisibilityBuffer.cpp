@@ -112,6 +112,29 @@ void VisibilityBuffer::CreateShadowRenderPass()
 
 }
 
+void VisibilityBuffer::CreateQueryPools()
+{
+	VkQueryPoolCreateInfo VBIDQueryInfo = {};
+	VBIDQueryInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	VBIDQueryInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	VBIDQueryInfo.pNext = 0;
+	VBIDQueryInfo.flags = 0;
+	VBIDQueryInfo.queryCount = 2;
+
+	vkCreateQueryPool(_renderer->GetVulkanDevice(), &VBIDQueryInfo, nullptr, &VBIDQueryPool);
+
+
+	VkQueryPoolCreateInfo VBShadeQueryInfo = {};
+	VBShadeQueryInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	VBShadeQueryInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	VBShadeQueryInfo.pNext = 0;
+	VBShadeQueryInfo.flags = 0;
+	VBShadeQueryInfo.queryCount = 2;
+
+	vkCreateQueryPool(_renderer->GetVulkanDevice(), &VBShadeQueryInfo, nullptr, &VBShadeQueryPool);
+
+}
+
 void VisibilityBuffer::GiveImGuiStaticInformation()
 {
 	for (int i = 0; i < _models.size(); i++)
@@ -902,6 +925,7 @@ void VisibilityBuffer::_CreateVIDCommandBuffers()
 
 
 	//begin command buffer and start the render pass
+
 	vk::tools::ErrorCheck(vkBeginCommandBuffer(IDCmdBuffer, &cmdBufferBeginInfo));
 	vkCmdBeginRenderPass(IDCmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -945,7 +969,6 @@ void VisibilityBuffer::_CreateVIDCommandBuffers()
 	
 
 	vkCmdEndRenderPass(IDCmdBuffer);
-
 	//End the command buffer drawing
 	vk::tools::ErrorCheck(vkEndCommandBuffer(IDCmdBuffer));
 
@@ -1022,7 +1045,7 @@ void VisibilityBuffer::_CreateCommandBuffers()
 			vkCmdSetScissor(_drawCommandBuffers[i], 0, 1, &scissor);
 			VkDeviceSize offsets[] = { 0 };
 
-			
+			vkCmdPushConstants(_drawCommandBuffers[i], _pipelineLayout[PipelineType::vbShade], VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), &drawModeValue);
 			vkCmdBindPipeline(_drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::vbShade]);
 			vkCmdBindDescriptorSets(_drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::vbShade], 0, 1, &compositionDescriptorSet, 0, NULL);
 			vkCmdDraw(_drawCommandBuffers[i],3, 1, 0, 0);
@@ -1395,18 +1418,10 @@ void VisibilityBuffer::_CreateDescriptorSetLayout()
 
 	vk::tools::ErrorCheck(vkCreateDescriptorSetLayout(_renderer->GetVulkanDevice(), &descriptorLayoutCreateInfo, nullptr, &descriptorSetLayouts.IDLayout));
 
-	//pipeline layout push constants (For image changing)
-	VkPushConstantRange pushConstantRange = {};
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	pushConstantRange.size = sizeof(uint32_t);
-	pushConstantRange.offset = 0;
-
 	VkPipelineLayoutCreateInfo IDPipelineLayoutCreateInfo = {};
 	IDPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	IDPipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayouts.IDLayout;
 	IDPipelineLayoutCreateInfo.setLayoutCount = 1;
-	IDPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-	IDPipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
 	vk::tools::ErrorCheck(vkCreatePipelineLayout(_renderer->GetVulkanDevice(), &IDPipelineLayoutCreateInfo, nullptr, &_pipelineLayout[PipelineType::vbID]));
 
@@ -1509,10 +1524,19 @@ void VisibilityBuffer::_CreateDescriptorSetLayout()
 	
 	vk::tools::ErrorCheck(vkCreateDescriptorSetLayout(_renderer->GetVulkanDevice(), &compDescriptorLayoutCreateInfo, nullptr, &descriptorSetLayouts.compositionLayout));
 
+
+	//pipeline layout push constants (For image changing)
+	VkPushConstantRange pushConstantRange = {};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	pushConstantRange.size = sizeof(uint32_t);
+	pushConstantRange.offset = 0;
+
 	VkPipelineLayoutCreateInfo compPipelineLayoutCreateInfo = {};
 	compPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	compPipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayouts.compositionLayout;
 	compPipelineLayoutCreateInfo.setLayoutCount = 1;
+	compPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+	compPipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 	
 	vk::tools::ErrorCheck(vkCreatePipelineLayout(_renderer->GetVulkanDevice(), &compPipelineLayoutCreateInfo, nullptr, &_pipelineLayout[PipelineType::vbShade]));
 
@@ -1595,6 +1619,7 @@ void VisibilityBuffer::Update()
 
 
 		VisibilityBuffer::DrawFrame();
+		VisibilityBuffer::_CreateVIDCommandBuffers();
 		VisibilityBuffer::_CreateCommandBuffers();
 
 		if (cameraUpdate)
@@ -1619,6 +1644,16 @@ void VisibilityBuffer::Update()
 		imGui->uiSettings.modelName = "Model: Sponza Crytek";
 
 		imGui->UpdateImGuiInformation(cameraUpdate);
+
+		if (imGui->uiSettings.VBIDMode == true)
+		{
+			drawModeValue = 1;
+		}
+		else
+		{
+			drawModeValue = 0;
+		}
+
 	}
 
 	vkDeviceWaitIdle(_renderer->GetVulkanDevice());
@@ -1658,18 +1693,21 @@ void VisibilityBuffer::DrawFrame()
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
 	auto end = std::chrono::high_resolution_clock::now();
-	frameTimeMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-	//// Scene rendering
-	//// Wait for offscreen semaphore
+	frameTimeMRT = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+	imGui->uiSettings.millisecondsMRT = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+	imGui->uiSettings.microsecondsMRT = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+	imGui->uiSettings.nanosecondsMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 
 
 
+
+	//SHADOWS RENDERING
 	submitInfo.pWaitSemaphores = &IDPassSemaphore;
 	submitInfo.pSignalSemaphores = &shadowSemaphore;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &shadowCmdBuffer;
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
-
+	
 
 
 
@@ -1687,7 +1725,14 @@ void VisibilityBuffer::DrawFrame()
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
 	end = std::chrono::high_resolution_clock::now();
-	frameTimeShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+	frameTimeShading = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+	imGui->uiSettings.millisecondsShading = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+	imGui->uiSettings.microsecondsShading = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+	imGui->uiSettings.nanosecondsShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+
+
+
+
 
 
 	VkPresentInfoKHR present_info = {};

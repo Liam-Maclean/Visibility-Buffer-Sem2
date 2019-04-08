@@ -390,7 +390,7 @@ void ImGUIInterface::newFrame(double frameTimerMRT, double frameTimerShading,  b
 	// Update frame time display
 	if (updateFrameGraph && frameTimerMRT != 0.0f) {
 		std::rotate(uiSettings.frameTimesMRT.begin(), uiSettings.frameTimesMRT.begin() + 1, uiSettings.frameTimesMRT.end());
-		float frameTime = 1000.0f / (frameTimerMRT);
+		float frameTime =  (frameTimerMRT);
 		uiSettings.frameTimesMRT.back() = frameTime;
 		if (frameTime < uiSettings.frameTimeMinMRT && frameTime != 0.0f) {
 			uiSettings.frameTimeMinMRT = frameTime;
@@ -403,7 +403,7 @@ void ImGUIInterface::newFrame(double frameTimerMRT, double frameTimerShading,  b
 	// Update frame time display
 	if (updateFrameGraph && frameTimerShading != 0.0f) {
 		std::rotate(uiSettings.frameTimesShading.begin(), uiSettings.frameTimesShading.begin() + 1, uiSettings.frameTimesShading.end());
-		float frameTime = 1000.0f / (frameTimerShading);
+		float frameTime =  (frameTimerShading);
 		uiSettings.frameTimesShading.back() = frameTime;
 		if (frameTime < uiSettings.frameTimeMinShading && frameTime != 0.0f) {
 			uiSettings.frameTimeMinShading = frameTime;
@@ -417,116 +417,111 @@ void ImGUIInterface::newFrame(double frameTimerMRT, double frameTimerShading,  b
 	{
 
 		ImGui::Begin(uiSettings.windowTitle.c_str());
-
-		if (ImGui::Checkbox("Visibility view", &uiSettings.VBIDMode))
-		{
-			if (uiSettings.VBIDMode)
-			{
-				uiSettings.wireFrameMode = false;
-				uiSettings.depthMode = false;
-			}
-		}
-		
-		ImGui::SameLine(150);
-		if (ImGui::Checkbox("Depth view", &uiSettings.depthMode))
-		{
-			if (uiSettings.depthMode)
-			{
-				uiSettings.VBIDMode = false;
-				uiSettings.wireFrameMode = false;
-			}
-		}
-
-		ImGui::SameLine(300);
-		if(ImGui::Checkbox("Wireframe view", &uiSettings.wireFrameMode))
-		{
-			if (uiSettings.wireFrameMode)
-			{
-				uiSettings.VBIDMode = false;
-				uiSettings.depthMode = false;
-			}
-		}
 		
 		ImGui::Text(cameraActive.c_str());
 		ImGui::Spacing();
 
 		ImGui::Text(uiSettings.modelName.c_str());
 		ImGui::Text("Vertices: %i   Indices %i    triangles %i", uiSettings.vertices, uiSettings.indices, uiSettings.face);
-		ImGui::PlotLines("Visibility ID pass frame time", &uiSettings.frameTimesMRT[0], 50, 0, "", uiSettings.frameTimeMinMRT, uiSettings.frameTimeMaxMRT, ImVec2(0, 80));
+		ImGui::PlotLines("Geometry pass frame time", &uiSettings.frameTimesMRT[0], 50, 0, "", uiSettings.frameTimeMinMRT, uiSettings.frameTimeMaxMRT, ImVec2(0, 80));
+		
+		ImGui::Text("Geometry pass Averages - ");
+		ImGui::SameLine(150);
+		ImGui::Text("Microseconds (us): %f", uiSettings.microsecondsMRT);
+		ImGui::SameLine(450);
+		ImGui::Text("Milliseconds (ms): %f", uiSettings.millisecondsMRT);
+		ImGui::NewLine();
+		ImGui::SameLine(150);
+		ImGui::Text("Nanoseconds (ns): %f", uiSettings.nanosecondsMRT);
+
+
 		ImGui::PlotLines("Visibility shading frame time", &uiSettings.frameTimesShading[0], 50, 0, "", uiSettings.frameTimeMinShading, uiSettings.frameTimeMaxShading, ImVec2(0, 80));
+		ImGui::Text("Shading Averages - ");
+		ImGui::SameLine(150);
+		ImGui::Text("Microseconds (us): %f", uiSettings.microsecondsShading);
+		ImGui::SameLine(450);
+		ImGui::Text("Milliseconds (ms): %f", uiSettings.millisecondsShading);
+		ImGui::NewLine();
+		ImGui::SameLine(150);
+		ImGui::Text("Nanoseconds (ns): %f", uiSettings.nanosecondsShading);
+
+		ImGui::NewLine();
+		ImGui::NewLine();
+
+		if (ImGui::Checkbox("Visibility view", &uiSettings.VBIDMode))
+		{
+		}
 
 	}
 	else
 	{
 		ImGui::Begin(uiSettings.windowTitle.c_str());
-
-
-		if (ImGui::Checkbox("Position view", &uiSettings.positionMode))
-		{
-			if (uiSettings.positionMode)
-			{
-				uiSettings.normalMode = false;
-				uiSettings.texcoordMode = false;
-				uiSettings.wireFrameMode = false;
-				uiSettings.depthMode = false;
-			}
-		}
-
-		if (ImGui::Checkbox("Normal view", &uiSettings.normalMode))
-		{
-			if (uiSettings.normalMode)
-			{
-				uiSettings.positionMode = false;
-				uiSettings.texcoordMode = false;
-				uiSettings.wireFrameMode = false;
-				uiSettings.depthMode = false;
-			}
-		}
-
-		if (ImGui::Checkbox("UV view", &uiSettings.texcoordMode))
-		{
-			if (uiSettings.texcoordMode)
-			{
-				uiSettings.positionMode = false;
-				uiSettings.normalMode = false;
-				uiSettings.wireFrameMode = false;
-				uiSettings.depthMode = false;
-			}
-		}
-
-		if (ImGui::Checkbox("Wireframe view", &uiSettings.wireFrameMode))
-		{
-			if (uiSettings.wireFrameMode)
-			{
-				uiSettings.positionMode = false;
-				uiSettings.normalMode = false;
-				uiSettings.texcoordMode = false;
-				uiSettings.depthMode = false;
-			}
-		}
-
-		if (ImGui::Checkbox("Depth view", &uiSettings.depthMode))
-		{
-			if (uiSettings.depthMode)
-			{
-				uiSettings.positionMode = false;
-				uiSettings.normalMode = false;
-				uiSettings.texcoordMode = false;
-				uiSettings.wireFrameMode = false;
-			}
-		}
-
-		
-
 		ImGui::Text(cameraActive.c_str());
 		ImGui::Spacing();
 
 		ImGui::Text(uiSettings.modelName.c_str());
 		ImGui::Text("Vertices: %i   Indices %i    triangles %i", uiSettings.vertices, uiSettings.indices, uiSettings.face);
 		ImGui::PlotLines("MRT frame time", &uiSettings.frameTimesMRT[0], 50, 0, "", uiSettings.frameTimeMinMRT, uiSettings.frameTimeMaxMRT, ImVec2(0, 80));
-		ImGui::PlotLines("Shading frame time", &uiSettings.frameTimesShading[0], 50, 0, "", uiSettings.frameTimeMinShading, uiSettings.frameTimeMaxShading, ImVec2(0, 80));
+		ImGui::Text("Geometry pass Averages - ");
+		ImGui::SameLine(150);
+		ImGui::Text("Microseconds (us): %f", uiSettings.microsecondsMRT);
+		ImGui::SameLine(450);
+		ImGui::Text("Milliseconds (ms): %f", uiSettings.millisecondsMRT);
+		ImGui::NewLine();
+		ImGui::SameLine(150);
+		ImGui::Text("Nanoseconds (ns): %f", uiSettings.nanosecondsMRT);
 
+
+
+		ImGui::PlotLines("Shading frame time", &uiSettings.frameTimesShading[0], 50, 0, "", uiSettings.frameTimeMinShading, uiSettings.frameTimeMaxShading, ImVec2(0, 80));
+		ImGui::Text("Shading Averages - ");
+		ImGui::SameLine(150);
+		ImGui::Text("Microseconds (us): %f", uiSettings.microsecondsShading);
+		ImGui::SameLine(450);
+		ImGui::Text("Milliseconds (ms): %f", uiSettings.millisecondsShading);
+		ImGui::NewLine();
+		ImGui::SameLine(150);
+		ImGui::Text("Nanoseconds (ns): %f", uiSettings.nanosecondsShading);
+
+		if (ImGui::Checkbox("Position view", &uiSettings.positionMode))
+		{
+			if (uiSettings.positionMode)
+			{
+				uiSettings.normalMode = false;
+				uiSettings.albedoMode = false;
+			}
+		}
+
+		ImGui::SameLine(150);
+		if (ImGui::Checkbox("Normal view", &uiSettings.normalMode))
+		{
+			if (uiSettings.normalMode)
+			{
+				uiSettings.positionMode = false;
+				uiSettings.albedoMode = false;
+			}
+		}
+
+
+		ImGui::SameLine(300);
+		if (ImGui::Checkbox("Albedo view", &uiSettings.albedoMode))
+		{
+			if (uiSettings.albedoMode)
+			{
+				uiSettings.positionMode = false;
+				uiSettings.normalMode = false;
+			}
+		}
 	}
+
+	ImGui::Text("INSTRUCTIONS");
+	ImGui::Text("------------");
+	ImGui::Text("Press space to toggle the camera control on and off.");
+	ImGui::Text("Use W to move forward, and S to move backwards when camera control is on.");
+	ImGui::Text("You can change different views of the pipeline by clicking the checkboxes above.");
+	ImGui::Text("You cannot have multiple of the same views on at the same time.");
+	ImGui::Text("These will default turn off when you change them");
+
 	ImGui::End();
 
 

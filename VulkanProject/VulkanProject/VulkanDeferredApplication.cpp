@@ -60,7 +60,6 @@ void VulkanDeferredApplication::Update()
 		io.MouseDown[1] = glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_LEFT) != 0;
 
 		VulkanDeferredApplication::DrawFrame();
-
 		VulkanDeferredApplication::_CreateCommandBuffers();
 
 		if (cameraUpdate)
@@ -85,6 +84,28 @@ void VulkanDeferredApplication::Update()
 		imGui->uiSettings.modelName = "Model: Sphere";
 
 		imGui->UpdateImGuiInformation(cameraUpdate);
+
+
+
+
+		if (imGui->uiSettings.positionMode == true)
+		{
+			drawModeValue = 1;
+		}
+		else if (imGui->uiSettings.normalMode == true)
+		{
+			drawModeValue = 2;
+		}
+		else if (imGui->uiSettings.albedoMode == true)
+		{
+			drawModeValue = 3;
+		}
+		else
+		{
+			drawModeValue = 0;
+		}
+
+
 	}
 	vkDeviceWaitIdle(_renderer->GetVulkanDevice());
 }
@@ -148,6 +169,10 @@ void VulkanDeferredApplication::DrawFrame()
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
 	auto end = std::chrono::high_resolution_clock::now();
 	frameTimeMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+	imGui->uiSettings.millisecondsMRT = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+	imGui->uiSettings.microsecondsMRT = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+	imGui->uiSettings.nanosecondsMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+
 
 
 	submitInfo.pWaitSemaphores = &shadowSemaphore;
@@ -173,7 +198,9 @@ void VulkanDeferredApplication::DrawFrame()
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
 	end = std::chrono::high_resolution_clock::now();
 	frameTimeShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-
+	imGui->uiSettings.millisecondsShading = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+	imGui->uiSettings.microsecondsShading = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+	imGui->uiSettings.nanosecondsShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 
 	VkPresentInfoKHR present_info = {};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -1261,10 +1288,17 @@ void VulkanDeferredApplication::_CreateDescriptorSetLayout()
 
 	vk::tools::ErrorCheck(vkCreateDescriptorSetLayout(_renderer->GetVulkanDevice(), &deferredDescriptorLayoutCreateInfo, nullptr, &deferredDescriptorSetLayout));
 
+	VkPushConstantRange pushConstantRange = {};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	pushConstantRange.offset = 0;
+	pushConstantRange.size = sizeof(uint32_t);
+
 	VkPipelineLayoutCreateInfo deferredPipelineLayoutCreateInfo = {};
 	deferredPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	deferredPipelineLayoutCreateInfo.pSetLayouts = &deferredDescriptorSetLayout;
 	deferredPipelineLayoutCreateInfo.setLayoutCount = 1;
+	deferredPipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
+	deferredPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 
 	vk::tools::ErrorCheck(vkCreatePipelineLayout(_renderer->GetVulkanDevice(), &deferredPipelineLayoutCreateInfo, nullptr, &_pipelineLayout[PipelineType::deferred]));
 
@@ -1509,6 +1543,7 @@ void VulkanDeferredApplication::CreateDeferredCommandBuffers()
 			//Dynamic offset to get the correct model matrix from the dynamic buffer
 			uint32_t dynamicOffset = i * static_cast<uint32_t>(dynamicAlignment);
 			//binding descriptor sets and drawing model on the screen
+			
 			vkCmdBindDescriptorSets(offScreenCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::offscreen], 0, 1, &_models[i]->descriptorSet, 1, &dynamicOffset);
 			vkCmdBindVertexBuffers(offScreenCmdBuffer, 0, 1, &_models[i]->model->GetVertexBuffer()->buffer, offsets);
 			vkCmdBindIndexBuffer(offScreenCmdBuffer, _models[i]->model->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -1591,6 +1626,8 @@ void VulkanDeferredApplication::_CreateCommandBuffers()
 
 			VkDeviceSize offsets[] = { 0 };
 			
+
+			vkCmdPushConstants(_drawCommandBuffers[i], _pipelineLayout[PipelineType::deferred], VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), &drawModeValue);
 			vkCmdBindPipeline(_drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::deferred]);
 			vkCmdBindDescriptorSets(_drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::deferred], 0, 1, &_descriptorSets[i], 0, NULL);
 			vkCmdBindVertexBuffers(_drawCommandBuffers[i], 0, 1, &screenTarget->GetVertexBuffer()->buffer, offsets);

@@ -14,14 +14,16 @@ public:
 		std::string modelName = "Model: ";
 		bool displayModels = true;
 		bool cameraActive = false;
-		bool wireFrameMode = false;
 
-		bool normalMode = false, depthMode = false, positionMode = false, texcoordMode = false, VBIDMode = false;
+		bool normalMode = false, positionMode = false, albedoMode = false, VBIDMode = false;
 
 		int vertices = 0, indices = 0, face = 0;
 		
 		float nanosecondsMRTPass = 0;
 		float nanosecondsShadingPass = 0;
+
+		double millisecondsMRT, microsecondsMRT, nanosecondsMRT;
+		double millisecondsShading, microsecondsShading, nanosecondsShading;
 
 		std::array<float, 50> frameTimesMRT{};
 		double frameTimeMinMRT = 0.0f, frameTimeMaxMRT = 0.0f;

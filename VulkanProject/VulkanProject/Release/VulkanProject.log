@@ -1,14 +1,7 @@
-﻿  ImGUIInterface.cpp
-c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\imguiinterface.cpp(82): warning C4244: 'argument': conversion from 'VkDeviceSize' to 'size_t', possible loss of data
-c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\imguiinterface.cpp(393): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\imguiinterface.cpp(406): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\imguiinterface.cpp(456): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
-c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\imguiinterface.cpp(457): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
-c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\imguiinterface.cpp(474): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
-c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\imguiinterface.cpp(475): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+﻿  Main.cpp
   Generating code
-  2 of 5090 functions (<0.1%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    3 functions had inline decision re-evaluated but remain unchanged
+  130 of 4744 functions ( 2.7%) were compiled, the rest were copied from previous compilation.
+    4 functions were new in current compilation
+    15 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
-  VulkanProject.vcxproj -> C:\Users\Liam Maclean\Documents\GitHub\Visibility-Buffer-Sem2\VulkanProject\Release\VulkanProject.exe
+  VulkanProject.vcxproj -> M:\GitHub\Visibility-Buffer-Sem2\VulkanProject\Release\VulkanProject.exe
