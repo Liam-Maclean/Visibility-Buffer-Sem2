@@ -14,6 +14,10 @@ public:
 		std::string modelName = "Model: ";
 		bool displayModels = true;
 		bool cameraActive = false;
+		bool wireFrameMode = false;
+
+		bool normalMode = false, depthMode = false, positionMode = false, texcoordMode = false, VBIDMode = false;
+
 		int vertices = 0, indices = 0, face = 0;
 		
 		float nanosecondsMRTPass = 0;
@@ -25,22 +29,19 @@ public:
 		std::array<float, 50> frameTimesShading{};
 		double frameTimeMinShading = 0.0f, frameTimeMaxShading = 0.0f;
 		float lightTimer;
-
-
-
-
 	}uiSettings;
 
 	ImGUIInterface(Renderer* renderer);
 	~ImGUIInterface();
 
-	void init(float width, float height, std::string title);
+	void init(float width, float height, std::string title, ImGuiMode mode);
 	void initResources(VkRenderPass renderPass, VkQueue copyQueue);
 	void newFrame(double frameTimerMRT, double frameTimerShading, bool updateFrameGraph);
 	void UpdateImGuiInformation(bool cameraActive);
 	void updateBuffers();
 	void DrawFrame(VkCommandBuffer commandBuffer);
 	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage);
+	
 	struct PushConstBlock
 	{
 		glm::vec2 scale;
@@ -64,6 +65,9 @@ private:
 	VkDescriptorSetLayout descriptorSetLayout;
 	VkDescriptorSet descriptorSet;
 	Renderer *pRenderer;
+
+	ImGuiMode imGuiMode;
+
 
 };
 

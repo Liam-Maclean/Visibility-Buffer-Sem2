@@ -11,9 +11,10 @@ ImGUIInterface::~ImGUIInterface()
 	ImGui::DestroyContext();
 }
 
-void ImGUIInterface::init(float width, float height, std::string title)
+void ImGUIInterface::init(float width, float height, std::string title, ImGuiMode mode)
 {
 
+	imGuiMode = mode;
 	uiSettings.windowTitle = title;
 	// Color scheme
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -412,20 +413,124 @@ void ImGUIInterface::newFrame(double frameTimerMRT, double frameTimerShading,  b
 		}
 	}
 
-	ImGui::Begin(uiSettings.windowTitle.c_str());
+	if (imGuiMode == ImGuiMode::VisBufferMode)
+	{
 
-	ImGui::Checkbox("Render models", &uiSettings.displayModels);
-	ImGui::Text(cameraActive.c_str());
-	ImGui::Spacing();
+		ImGui::Begin(uiSettings.windowTitle.c_str());
 
-	ImGui::Text(uiSettings.modelName.c_str());
-	ImGui::Text("Vertices: %i   Indices %i    triangles %i", uiSettings.vertices, uiSettings.indices, uiSettings.face);
-	ImGui::PlotLines("MRT frame time", &uiSettings.frameTimesMRT[0], 50, 0, "", uiSettings.frameTimeMinMRT, uiSettings.frameTimeMaxMRT, ImVec2(0, 80));
-	ImGui::PlotLines("Shading frame time", &uiSettings.frameTimesShading[0], 50, 0, "", uiSettings.frameTimeMinShading, uiSettings.frameTimeMaxShading, ImVec2(0, 80));
+		if (ImGui::Checkbox("Visibility view", &uiSettings.VBIDMode))
+		{
+			if (uiSettings.VBIDMode)
+			{
+				uiSettings.wireFrameMode = false;
+				uiSettings.depthMode = false;
+			}
+		}
+		
+		ImGui::SameLine(150);
+		if (ImGui::Checkbox("Depth view", &uiSettings.depthMode))
+		{
+			if (uiSettings.depthMode)
+			{
+				uiSettings.VBIDMode = false;
+				uiSettings.wireFrameMode = false;
+			}
+		}
 
+		ImGui::SameLine(300);
+		if(ImGui::Checkbox("Wireframe view", &uiSettings.wireFrameMode))
+		{
+			if (uiSettings.wireFrameMode)
+			{
+				uiSettings.VBIDMode = false;
+				uiSettings.depthMode = false;
+			}
+		}
+		
+		ImGui::Text(cameraActive.c_str());
+		ImGui::Spacing();
+
+		ImGui::Text(uiSettings.modelName.c_str());
+		ImGui::Text("Vertices: %i   Indices %i    triangles %i", uiSettings.vertices, uiSettings.indices, uiSettings.face);
+		ImGui::PlotLines("Visibility ID pass frame time", &uiSettings.frameTimesMRT[0], 50, 0, "", uiSettings.frameTimeMinMRT, uiSettings.frameTimeMaxMRT, ImVec2(0, 80));
+		ImGui::PlotLines("Visibility shading frame time", &uiSettings.frameTimesShading[0], 50, 0, "", uiSettings.frameTimeMinShading, uiSettings.frameTimeMaxShading, ImVec2(0, 80));
+
+	}
+	else
+	{
+		ImGui::Begin(uiSettings.windowTitle.c_str());
+
+
+		if (ImGui::Checkbox("Position view", &uiSettings.positionMode))
+		{
+			if (uiSettings.positionMode)
+			{
+				uiSettings.normalMode = false;
+				uiSettings.texcoordMode = false;
+				uiSettings.wireFrameMode = false;
+				uiSettings.depthMode = false;
+			}
+		}
+
+		if (ImGui::Checkbox("Normal view", &uiSettings.normalMode))
+		{
+			if (uiSettings.normalMode)
+			{
+				uiSettings.positionMode = false;
+				uiSettings.texcoordMode = false;
+				uiSettings.wireFrameMode = false;
+				uiSettings.depthMode = false;
+			}
+		}
+
+		if (ImGui::Checkbox("UV view", &uiSettings.texcoordMode))
+		{
+			if (uiSettings.texcoordMode)
+			{
+				uiSettings.positionMode = false;
+				uiSettings.normalMode = false;
+				uiSettings.wireFrameMode = false;
+				uiSettings.depthMode = false;
+			}
+		}
+
+		if (ImGui::Checkbox("Wireframe view", &uiSettings.wireFrameMode))
+		{
+			if (uiSettings.wireFrameMode)
+			{
+				uiSettings.positionMode = false;
+				uiSettings.normalMode = false;
+				uiSettings.texcoordMode = false;
+				uiSettings.depthMode = false;
+			}
+		}
+
+		if (ImGui::Checkbox("Depth view", &uiSettings.depthMode))
+		{
+			if (uiSettings.depthMode)
+			{
+				uiSettings.positionMode = false;
+				uiSettings.normalMode = false;
+				uiSettings.texcoordMode = false;
+				uiSettings.wireFrameMode = false;
+			}
+		}
+
+		
+
+		ImGui::Text(cameraActive.c_str());
+		ImGui::Spacing();
+
+		ImGui::Text(uiSettings.modelName.c_str());
+		ImGui::Text("Vertices: %i   Indices %i    triangles %i", uiSettings.vertices, uiSettings.indices, uiSettings.face);
+		ImGui::PlotLines("MRT frame time", &uiSettings.frameTimesMRT[0], 50, 0, "", uiSettings.frameTimeMinMRT, uiSettings.frameTimeMaxMRT, ImVec2(0, 80));
+		ImGui::PlotLines("Shading frame time", &uiSettings.frameTimesShading[0], 50, 0, "", uiSettings.frameTimeMinShading, uiSettings.frameTimeMaxShading, ImVec2(0, 80));
+
+	}
 	ImGui::End();
 
 
+	
 
 	// Render to generate draw buffers
 	ImGui::Render();

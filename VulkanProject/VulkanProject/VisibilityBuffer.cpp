@@ -179,7 +179,7 @@ void VisibilityBuffer::PrepareIndirectData()
 void VisibilityBuffer::CreateImGui()
 {
 	imGui = new ImGUIInterface(_renderer);
-	imGui->init((float)_swapChainExtent.width, (float)_swapChainExtent.height, "Visibility Buffer Rendering");
+	imGui->init((float)_swapChainExtent.width, (float)_swapChainExtent.height, "Visibility Buffer Rendering", ImGuiMode::VisBufferMode);
 	imGui->initResources(_renderPass, _renderer->GetVulkanGraphicsQueue());
 }
 

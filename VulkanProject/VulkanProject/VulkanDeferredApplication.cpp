@@ -204,7 +204,7 @@ void VulkanDeferredApplication::DrawFrame()
 void VulkanDeferredApplication::CreateImGui()
 {
 	imGui = new ImGUIInterface(_renderer);
-	imGui->init((float)_swapChainExtent.width, (float)_swapChainExtent.height, "Vulkan Deferred Rendering");
+	imGui->init((float)_swapChainExtent.width, (float)_swapChainExtent.height, "Vulkan Deferred Rendering", ImGuiMode::DeferredMode);
 	imGui->initResources(_renderPass, _renderer->GetVulkanGraphicsQueue());
 }
 

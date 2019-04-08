@@ -12,6 +12,12 @@
 
 class BaseModel;
 
+enum ImGuiMode
+{
+	VisBufferMode,
+	DeferredMode
+};
+
 namespace vk
 {
 	namespace wrappers
