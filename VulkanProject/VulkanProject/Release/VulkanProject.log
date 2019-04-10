@@ -1,19 +1,19 @@
-﻿  VulkanDeferredApplication.cpp
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(59): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(154): warning C4018: '<': signed/unsigned mismatch
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(202): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(203): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(204): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(205): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(230): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(231): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(232): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(233): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(596): warning C4018: '<': signed/unsigned mismatch
-\\stuhome\homedrive5$\1503395\github\visibility-buffer-sem2\vulkanproject\vulkanproject\vulkandeferredapplication.cpp(710): warning C4244: 'initializing': conversion from 'const VkDeviceSize' to '::size_t', possible loss of data
+﻿  VisibilityBuffer.cpp
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(140): warning C4018: '<': signed/unsigned mismatch
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(255): warning C4018: '<': signed/unsigned mismatch
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(588): warning C4244: 'initializing': conversion from 'const VkDeviceSize' to 'size_t', possible loss of data
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1632): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1712): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1713): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1714): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1715): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1743): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1744): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1745): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
+c:\users\liam maclean\documents\github\visibility-buffer-sem2\vulkanproject\vulkanproject\visibilitybuffer.cpp(1746): warning C4244: '=': conversion from '__int64' to 'double', possible loss of data
   Generating code
-  0 of 4937 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+  3 of 5098 functions (<0.1%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    0 functions had inline decision re-evaluated but remain unchanged
+    8 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
-  VulkanProject.vcxproj -> \\StuHome\HomeDrive5$\1503395\GitHub\Visibility-Buffer-Sem2\VulkanProject\Release\VulkanProject.exe
+  VulkanProject.vcxproj -> C:\Users\Liam Maclean\Documents\GitHub\Visibility-Buffer-Sem2\VulkanProject\Release\VulkanProject.exe

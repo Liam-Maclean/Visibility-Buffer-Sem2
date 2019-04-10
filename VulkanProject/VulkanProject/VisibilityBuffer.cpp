@@ -22,8 +22,8 @@ void VisibilityBuffer::InitialiseVulkanApplication()
 	VisibilityBuffer::_CreateDescriptorPool();
 	VisibilityBuffer::_CreateDescriptorSets();
 	VisibilityBuffer::_CreateShadowCommandBuffers();
-	VisibilityBuffer::_CreateCommandBuffers();
 	VisibilityBuffer::_CreateVIDCommandBuffers();
+	VisibilityBuffer::_CreateCommandBuffers();
 	VisibilityBuffer::GiveImGuiStaticInformation();
 	VisibilityBuffer::Update();
 }
@@ -421,11 +421,25 @@ void VisibilityBuffer::_CreateGraphicsPipeline()
 	pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
 	pipelineCreateInfo.pStages = shaderStages.data();
 
+	VkSpecializationMapEntry specializationEntry{};
+	specializationEntry.constantID = 0;
+	specializationEntry.offset = 0;
+	specializationEntry.size = sizeof(uint32_t);
+
+	uint32_t specializationData = sampleCount;
+
+	VkSpecializationInfo specializationInfo;
+	specializationInfo.mapEntryCount = 1;
+	specializationInfo.pMapEntries = &specializationEntry;
+	specializationInfo.dataSize = sizeof(specializationData);
+	specializationInfo.pData = &specializationData;
+
 
 	//Final Pipeline (after offscreen pass)
 	//Shader loading (Loads shader modules for pipeline)
 	shaderStages[0] = loadShader("Shaders/VisibilityBuffer/VBShade.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = loadShader("Shaders/VisibilityBuffer/VBShade.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[1].pSpecializationInfo = &specializationInfo;
 
 	VkPipelineVertexInputStateCreateInfo emptyVertexInputState = {};
 	emptyVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -443,7 +457,9 @@ void VisibilityBuffer::_CreateGraphicsPipeline()
 	shaderStages[1] = loadShader("Shaders/VisibilityBuffer/VBID.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	pipelineCreateInfo.pVertexInputState = &vertices.inputState;
 
-	//rasterizerCreateInfo.cullMode = VK_CULL_MODE_NONE;
+	multisampleStateInfo.rasterizationSamples = sampleCount;
+	multisampleStateInfo.alphaToCoverageEnable = VK_FALSE;
+
 	rasterizerCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
 	////Swap the render pass and layout to the deferred renderpass and layout (offscreen rendering)
@@ -762,6 +778,7 @@ void VisibilityBuffer::CreateVBuffer()
 	IDFrameBuffer.height = _swapChainExtent.height;
 
 	_CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &IDFrameBuffer.VID, IDFrameBuffer);
+	//_CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &IDFrameBuffer.VID, IDFrameBuffer);
 	
 	//Find Depth Format
 	VkFormat DepthFormat;
@@ -771,9 +788,9 @@ void VisibilityBuffer::CreateVBuffer()
 
 	//Attachment descriptions for renderpass 
 	std::array<VkAttachmentDescription, 2> attachmentDescs = {};
-	for (uint32_t i = 0; i < 2; ++i)
+	for (uint32_t i = 0; i < 2; i++)
 	{
-		attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachmentDescs[i].samples = sampleCount;
 		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -1619,7 +1636,6 @@ void VisibilityBuffer::Update()
 
 
 		VisibilityBuffer::DrawFrame();
-		VisibilityBuffer::_CreateVIDCommandBuffers();
 		VisibilityBuffer::_CreateCommandBuffers();
 
 		if (cameraUpdate)
@@ -1707,7 +1723,6 @@ void VisibilityBuffer::DrawFrame()
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &shadowCmdBuffer;
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
-	
 
 
 

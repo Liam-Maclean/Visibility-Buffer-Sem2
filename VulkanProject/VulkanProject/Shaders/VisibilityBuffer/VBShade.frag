@@ -108,7 +108,7 @@ layout (binding = 0) uniform UBO
 } ubo;
 
 layout (binding = 1) uniform sampler2D inTexture[25];
-layout (binding = 2) uniform sampler2D inVBTexture;
+layout (binding = 2) uniform sampler2DMS inVBTexture;
 layout (std430, binding = 3) readonly buffer indexBuffer
 {
 	uint indexBufferData[];
@@ -146,19 +146,18 @@ layout (binding = 10) uniform LightMatrices
 	mat4 lightVP;
 }lightMatrices;
 
-
-
 layout (location = 0) in vec2 inScreenPos;
 layout (location = 0) out vec4 outColor;
-
+layout (constant_id = 0) const int NUM_SAMPLES = 8;
 
 
 void main()
 {
-    vec4 visRaw = texelFetch(inVBTexture, ivec2(gl_FragCoord.xy), 0);
+    vec4 visRaw = texelFetch(inVBTexture, ivec2(gl_FragCoord.xy), gl_SampleID);
+	//uint visRaw = texelFetch(inVBTexture, ivec2(gl_FragCoord.xy), gl_SampleID);
 	
-	
-    //// Unpack float4 render target data into uint to extract data
+	//uint alphaBit_drawID_triID = visRaw;
+    // Unpack float4 render target data into uint to extract data
     uint alphaBit_drawID_triID = packUnorm4x8(visRaw);
 	
 	vec3 shadedColor = vec3(1.0f, 1.0f, 1.0f);

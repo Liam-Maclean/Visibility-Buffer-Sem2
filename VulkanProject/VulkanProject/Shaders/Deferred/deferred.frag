@@ -40,7 +40,7 @@ layout (push_constant) uniform PushConstants {
 layout (location = 0) in vec2 inUV;
 
 //Specialization data added at pipeline creation for the shader
-layout (constant_id = 0) const int NUM_SAMPLES = 4;
+layout (constant_id = 0) const int NUM_SAMPLES = 8;
 
 //UBO's
 layout (binding = 0) uniform sampler2DMS samplerPosition;
@@ -113,38 +113,41 @@ void main()
 	
 	vec3 diffuseComponent = vec3(0.0f, 0.0f, 0.0f);
 	
-	//temporary variables
-	for(int x = 0; x < NUM_SAMPLES; x++)
+	
+	//output the position screen draw
+	if(pushConstants.drawModeID == 1)
 	{
-		// Get G-Buffer values
-		vec4 fragPos = texelFetch(samplerPosition, uv, x);
-		vec3 normal = texelFetch(samplerNormal, uv, x).rgb;
-		vec4 albedo = texelFetch(samplerAlbedo, uv, x);
-		float shadow = 1.0f;
+		vec4 fragPos = texelFetch(samplerPosition, uv, 0);
+		outFragColor = fragPos;
+	}
+	//output the normal screen draw
+	else if (pushConstants.drawModeID == 2)
+	{
+		vec3 normal = texelFetch(samplerNormal, uv, 0).rgb;
+		outFragColor = vec4(normal.xyz, 1.0f);
+	}
+	//output the albedo screen draw
+	else if (pushConstants.drawModeID == 3)
+	{
+		vec4 albedo = texelFetch(samplerAlbedo, uv, 0);
+		outFragColor = albedo;
+	}
+	else if (pushConstants.drawModeID == 4)
+	{
+		outFragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	//output as normal doing lighting and shadows
+	else
+	{
+		//temporary variables
+		for(int x = 0; x < NUM_SAMPLES; x++)
+		{
+			// Get G-Buffer values
+			vec4 fragPos = texelFetch(samplerPosition, uv, x);
+			vec3 normal = texelFetch(samplerNormal, uv, x).rgb;
+			vec4 albedo = texelFetch(samplerAlbedo, uv, x);
+			float shadow = 1.0f;
 		
-		
-		//output the position screen draw
-		if(pushConstants.drawModeID == 1)
-		{
-			outFragColor = fragPos;
-		}
-		//output the normal screen draw
-		else if (pushConstants.drawModeID == 2)
-		{
-			outFragColor = vec4(normal.xyz, 1.0f);
-		}
-		//output the albedo screen draw
-		else if (pushConstants.drawModeID == 3)
-		{
-			outFragColor = albedo;
-		}
-		else if (pushConstants.drawModeID == 4)
-		{
-			outFragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-		}
-		//output as normal doing lighting and shadows
-		else
-		{
 			normal = normalize(normal);
 		
 			//DIRECTIONAL LIGHTS
@@ -189,13 +192,11 @@ void main()
 				diffuseComponent *= shadow;
 			}
 		}
+		
+		//vec3 outColor = (ambientColor.xyz + diffuseComponent.xyz + specular.xyz) * alb.xyz;
+		vec3 fragColor = (alb.rgb * ambientValue) + diffuseComponent.xyz / float(NUM_SAMPLES);
+		outFragColor = vec4(fragColor.rgb, 1.0);
 	}
-	
-	//vec3 outColor = (ambientColor.xyz + diffuseComponent.xyz + specular.xyz) * alb.xyz;
-	vec3 fragColor = (alb.rgb * ambientValue) + diffuseComponent.xyz / float(NUM_SAMPLES);
-	outFragColor = vec4(fragColor.rgb, 1.0);
-	
-	
 }
 
 

@@ -11,5 +11,6 @@ layout (location = 0) out vec4 oColor;
 
 void main()
 {
+	//oColor = calculateOutputVBID(true, iDrawID, gl_PrimitiveID);
 	oColor = unpackUnorm4x8(calculateOutputVBID(true, iDrawID, gl_PrimitiveID));
 }
