@@ -24,7 +24,7 @@ VulkanWindow::VulkanWindow(Renderer* renderer, int width, int height)
 //Prepares the base of the scene
 void VulkanWindow::PrepareScene()
 {
-
+	sampleCount = VulkanWindow::GetMaxUsableSampleCount();
 	VulkanWindow::_InitSurface();
 	VulkanWindow::_CreateSemaphores();
 	VulkanWindow::_CreateSwapChain();
@@ -38,6 +38,20 @@ void VulkanWindow::PrepareScene()
 	VulkanWindow::_CreateUniformBuffer();
 	
 
+}
+
+
+// Returns the maximum sample count usable by the platform
+VkSampleCountFlagBits VulkanWindow::GetMaxUsableSampleCount()
+{
+	VkSampleCountFlags counts = std::min(_renderer->_gpu_properties.limits.framebufferColorSampleCounts, _renderer->_gpu_properties.limits.framebufferDepthSampleCounts);
+	if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+	if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+	if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+	if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+	if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+	if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+	return VK_SAMPLE_COUNT_1_BIT;
 }
 
 void VulkanWindow::_CreatePipelineCache()
@@ -1151,7 +1165,7 @@ void VulkanWindow::_CreateAttachment(VkFormat format, VkImageUsageFlagBits usage
 	imageCreateInfo.extent.depth = 1;
 	imageCreateInfo.mipLevels = 1;
 	imageCreateInfo.arrayLayers = 1;
-	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCreateInfo.samples = sampleCount;
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.usage = usageFlags | VK_IMAGE_USAGE_SAMPLED_BIT;
 
@@ -1311,7 +1325,7 @@ void VulkanWindow::_CreateAttachment(VkFormat format, VkImageUsageFlagBits usage
 	imageCreateInfo.extent.depth = 1;
 	imageCreateInfo.mipLevels = 1;
 	imageCreateInfo.arrayLayers = 1;
-	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCreateInfo.samples = sampleCount;
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL; 
 	imageCreateInfo.usage = usageFlags | VK_IMAGE_USAGE_SAMPLED_BIT;
 	//Initialise mem alloc and mem requirement variables

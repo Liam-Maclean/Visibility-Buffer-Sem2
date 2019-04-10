@@ -1,5 +1,6 @@
 #version 450
 
+#extension GL_ARB_shader_draw_parameters : enable
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
@@ -27,6 +28,8 @@ layout (location = 0) out vec4 outWorldPos;
 layout (location = 1) out vec4 outColor;
 layout (location = 2) out vec2 outUV;
 layout (location = 3) out vec4 outNormal;
+layout (location = 4) out flat uint outDrawID;
+
 out gl_PerVertex
 {
 	vec4 gl_Position;
@@ -35,6 +38,8 @@ out gl_PerVertex
 void main() 
 {
 	gl_Position = ubo.projection * ubo.view * uboModelMatrix.model * vec4(inPos.xyz, 1.0f);
+	
+	outDrawID = gl_DrawIDARB;
 	
 	//outNormal = uboModelMatrix.model * vec4(inNormal.xyz, 1.0f);
 	//outNormal = normalize(outNormal);

@@ -47,9 +47,18 @@ public:
 		VkDescriptorSet house;
 	}descriptorSets;
 
+	struct materialInfo {
+		uint32_t materialID;
+		uint32_t padding1;
+	};
+
+	struct vertexArgs {
+		uint32_t vertexBase;
+		uint32_t padding;
+	};
 
 
-
+	void CreateIndirectInformation();
 	void CreateCamera();
 	void GiveImGuiStaticInformation();
 	void InitialiseVulkanApplication();
@@ -115,6 +124,15 @@ public:
 	Camera* camera;
 
 
+	//INDIRECT INFORMATION
+	std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
+	std::vector<materialInfo> materialIDs;
+	std::vector<vertexArgs> startVertex;
+	uint32_t indirectDrawCount;
+
+	vk::wrappers::Buffer indirectCommandsBuffer;
+	vk::wrappers::Buffer materialIDBuffer;
+
 	glm::mat4 lightView;
 	glm::mat4 lightProjection;
 	glm::mat4 finalLightMatrix;
@@ -125,6 +143,7 @@ public:
 	vk::wrappers::Buffer lightViewMatrixBuffer;
 	vk::wrappers::Buffer lightViewMatrixBuffershading;
 	glm::mat4 lightViewMatrixShadowPass;
+
 
 
 	vk::wrappers::Buffer dynamicUboBuffer;

@@ -13,6 +13,7 @@ void VulkanDeferredApplication::InitialiseVulkanApplication()
 	VulkanDeferredApplication::_CreateGeometry();
 	VulkanDeferredApplication::CreateShadowRenderPass();
 	VulkanDeferredApplication::CreateGBuffer();
+	VulkanDeferredApplication::CreateIndirectInformation();
 	VulkanDeferredApplication::SetUpUniformBuffers();
 	VulkanDeferredApplication::_CreateDescriptorSetLayout();
 	VulkanDeferredApplication::_CreateVertexDescriptions();
@@ -110,6 +111,34 @@ void VulkanDeferredApplication::Update()
 	vkDeviceWaitIdle(_renderer->GetVulkanDevice());
 }
 
+//Creates indirect information for VkCmdIndirectIndexedDraw
+void VulkanDeferredApplication::CreateIndirectInformation()
+{
+	int32_t m = 0;
+
+	materialIDs.resize(_models[0]->model->parts.size());
+
+
+	for (size_t i = 0; i < _models[0]->model->parts.size(); i++)
+	{
+		VkDrawIndexedIndirectCommand drawIndexedCmd = {};
+		drawIndexedCmd.instanceCount = 1;
+		drawIndexedCmd.firstInstance = 0;
+		drawIndexedCmd.firstIndex = _models[0]->model->parts[i].indexBase;
+		drawIndexedCmd.indexCount = _models[0]->model->parts[i].indexCount;
+
+		materialIDs[i].materialID = _models[0]->model->parts[i].materialID;
+
+		indirectCommands.push_back(drawIndexedCmd);
+		m++;
+	}
+
+	indirectDrawCount = indirectDrawCount = static_cast<uint32_t>(indirectCommands.size());
+
+
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), indirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand), &indirectCommandsBuffer.buffer, &indirectCommandsBuffer.memory, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, indirectCommands.data());
+}
+
 //Creates the camera in which the view and projection matrices are held
 void VulkanDeferredApplication::CreateCamera()
 {
@@ -151,16 +180,18 @@ void VulkanDeferredApplication::DrawFrame()
 	UpdateUniformBuffer(imageIndex);
 
 
+
+	vkDeviceWaitIdle(_renderer->GetVulkanDevice());
+
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.signalSemaphoreCount = 1;
-	// Wait for swap chain presentation to finish
-	submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
-	// Signal ready with offscreen semaphore
-	submitInfo.pSignalSemaphores = &shadowSemaphore;
 
-	// Submit work
+
+	// Wait for swap chain presentation to finish and ready submit info to fill G-Buffer
+	submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
+	submitInfo.pSignalSemaphores = &shadowSemaphore;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &offScreenCmdBuffer;
 
@@ -175,24 +206,23 @@ void VulkanDeferredApplication::DrawFrame()
 
 
 
+	//Set up submit info for shadow pass
 	submitInfo.pWaitSemaphores = &shadowSemaphore;
-	
 	submitInfo.pSignalSemaphores = &offScreenSemaphore;
-	
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &shadowCmdBuffer;
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
 
 
-	// Scene rendering
-	// Wait for offscreen semaphore
+
+	//Set up submit info for framebuffer pass
 	submitInfo.pWaitSemaphores = &offScreenSemaphore;
-	// Signal ready with render complete semaphpre
 	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;
-
-	// Submit work
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &_drawCommandBuffers[imageIndex];
+
+	//Time the queue duration
 	start = std::chrono::high_resolution_clock::now();
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
@@ -228,6 +258,7 @@ void VulkanDeferredApplication::DrawFrame()
 	vkQueueWaitIdle(_renderer->GetVulkanPresentQueue());
 }
 
+//Creates ImGui information for UI
 void VulkanDeferredApplication::CreateImGui()
 {
 	imGui = new ImGUIInterface(_renderer);
@@ -320,11 +351,24 @@ void VulkanDeferredApplication::_CreateGraphicsPipeline()
 	pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
 	pipelineCreateInfo.pStages = shaderStages.data();
 
+	VkSpecializationMapEntry specializationEntry{};
+	specializationEntry.constantID = 0;
+	specializationEntry.offset = 0;
+	specializationEntry.size = sizeof(uint32_t);
+
+	uint32_t specializationData = sampleCount;
+
+	VkSpecializationInfo specializationInfo;
+	specializationInfo.mapEntryCount = 1;
+	specializationInfo.pMapEntries = &specializationEntry;
+	specializationInfo.dataSize = sizeof(specializationData);
+	specializationInfo.pData = &specializationData;
 
 	//Final Pipeline (after offscreen pass)
 	//Shader loading (Loads shader modules for pipeline)
 	shaderStages[0] = loadShader("Shaders/Deferred/deferred.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = loadShader("Shaders/Deferred/deferred.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[1].pSpecializationInfo = &specializationInfo;
 
 	VkPipelineVertexInputStateCreateInfo emptyVertexInputState = {};
 	emptyVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -344,6 +388,10 @@ void VulkanDeferredApplication::_CreateGraphicsPipeline()
 	shaderStages[0] = loadShader("Shaders/Deferred/mrt.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = loadShader("Shaders/Deferred/mrt.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	//
+
+	multisampleStateInfo.rasterizationSamples = sampleCount;
+	multisampleStateInfo.alphaToCoverageEnable = VK_TRUE;
+
 	////Swap the render pass and layout to the deferred renderpass and layout (offscreen rendering)
 	pipelineCreateInfo.renderPass = deferredOffScreenFrameBuffer.renderPass;
 	pipelineCreateInfo.layout = _pipelineLayout[PipelineType::offscreen];
@@ -467,6 +515,9 @@ void VulkanDeferredApplication::_CreateShadowPipeline()
 	shaderStages[0] = loadShader("Shaders/Deferred/shadow.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = loadShader("Shaders/Deferred/shadow.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
+	multisampleStateInfo.rasterizationSamples = sampleCount;
+	multisampleStateInfo.alphaToCoverageEnable = VK_TRUE;
+
 	VkPipelineVertexInputStateCreateInfo emptyVertexInputState = {};
 	emptyVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
@@ -525,18 +576,19 @@ void VulkanDeferredApplication::_CreateGeometry()
 	planeMesh->GetIndexBuffer()->SetUpDescriptorSet();
 	planeMesh->GetVertexBuffer()->SetUpDescriptorSet();
 
-	//houseModel = new ImportedModel("Textures/Sphere.obj", true);
-	//_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
-	//_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
-	//houseModel->GetIndexBuffer()->SetUpDescriptorSet();
-	//houseModel->GetVertexBuffer()->SetUpDescriptorSet();
 
 
 	//Loads the sponza scene
 	std::vector<std::string> textureFilepaths;
 
+	houseModel = new ImportedModel("Textures/Sponza/sponza.obj", true, "Textures/Sponza/", textureFilepaths);
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
+	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
+	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
+	houseModel->GetVertexBuffer()->SetUpDescriptorSet();
+
 	//Crytek Sponza scene
-	BaseModel::LoadMeshFromFile("Textures/Sponza/sponza.obj", "Textures/Sponza/", true, _meshes, textureFilepaths);
+	//BaseModel::LoadMeshFromFile("Textures/Sponza/sponza.obj", "Textures/Sponza/", true, _meshes, textureFilepaths);
 
 	//San_Miguel scene
 	//BaseModel::LoadMeshFromFile("Textures/San_Miguel/san-miguel-low-poly.obj", "Textures/San_Miguel/san-miguel-low-poly.mtl", true, _meshes, textureFilepaths);
@@ -550,16 +602,19 @@ void VulkanDeferredApplication::_CreateGeometry()
 	}
 
 
-	for (int i = 0; i < _meshes.size(); i++)
-	{
-		_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetVertexBufferSize(), &_meshes[i]->GetVertexBuffer()->buffer, &_meshes[i]->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, _meshes[i]->GetVertexData());
-		_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetIndexBufferSize(), &_meshes[i]->GetIndexBuffer()->buffer, &_meshes[i]->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, _meshes[i]->GetIndexData());
-		_meshes[i]->GetIndexBuffer()->SetUpDescriptorSet();
-		_meshes[i]->GetVertexBuffer()->SetUpDescriptorSet();
+	_models.push_back(new vk::wrappers::Model());
+	_models[0]->model = houseModel;
 
-		_models.push_back(new vk::wrappers::Model());
-		_models[i]->model = _meshes[i];
-	}
+	//for (int i = 0; i < _meshes.size(); i++)
+	//{
+	//	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetVertexBufferSize(), &_meshes[i]->GetVertexBuffer()->buffer, &_meshes[i]->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, _meshes[i]->GetVertexData());
+	//	_CreateShaderBuffer(_renderer->GetVulkanDevice(), _meshes[i]->GetIndexBufferSize(), &_meshes[i]->GetIndexBuffer()->buffer, &_meshes[i]->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, _meshes[i]->GetIndexData());
+	//	_meshes[i]->GetIndexBuffer()->SetUpDescriptorSet();
+	//	_meshes[i]->GetVertexBuffer()->SetUpDescriptorSet();
+	//
+	//	_models.push_back(new vk::wrappers::Model());
+	//	_models[i]->model = _meshes[i];
+	//}
 
 	
 
@@ -584,12 +639,12 @@ void VulkanDeferredApplication::_CreateGeometry()
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 	_directionalLights.push_back(new vk::wrappers::DirectionalLight());
 
-	_directionalLights[0]->diffuse = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+	_directionalLights[0]->diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	_directionalLights[0]->direction = glm::vec4(2.0f, 7.0f, 2.0f, 1.0f);
 	_directionalLights[0]->specular = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
 
-	_pointLights[0]->diffuse = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-	_pointLights[0]->position = glm::vec4(2.0f, 7.0f, 4.0f,1.0f);
+	_pointLights[0]->diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	_pointLights[0]->position = glm::vec4(1.0f, 3.5f, 1.0f,1.0f);
 	_pointLights[0]->specular = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
 	_pointLights[0]->constant = 1.0f;
 	_pointLights[0]->linear = 0.09f;
@@ -692,6 +747,9 @@ void VulkanDeferredApplication::SetUpUniformBuffers()
 		//}
 	}
 	
+
+	VulkanDeferredApplication::_CreateShaderBuffer(_renderer->GetVulkanDevice(), static_cast<uint32_t>(materialIDs.size()) * sizeof(materialInfo), &materialIDBuffer.buffer, &materialIDBuffer.memory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, materialIDs.data());
+
 	//Creates dynamic uniform buffer
 	//_CreateShaderBuffer(_renderer->GetVulkanDevice(), bufferSize, &dynamicUboBuffer.buffer, &dynamicUboBuffer.memory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &uboDataDynamic);
 	//Maps the data to the dynamic uniform buffer
@@ -728,7 +786,7 @@ void VulkanDeferredApplication::CreateShadowRenderPass()
 	std::array<VkAttachmentDescription, 1> attachmentDescs = {};
 	for (uint32_t i = 0; i < 1; ++i)
 	{
-		attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachmentDescs[i].samples = sampleCount;
 		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -801,6 +859,10 @@ void VulkanDeferredApplication::CreateGBuffer()
 {
 	//Off Screen framebuffer for deferred rendering
 
+	//deferredOffScreenFrameBuffer.width = _swapChainExtent.width;
+	//deferredOffScreenFrameBuffer.height = _swapChainExtent.height;
+
+
 	deferredOffScreenFrameBuffer.width = _swapChainExtent.width;
 	deferredOffScreenFrameBuffer.height = _swapChainExtent.height;
 
@@ -822,7 +884,7 @@ void VulkanDeferredApplication::CreateGBuffer()
 	std::array<VkAttachmentDescription, 4> attachmentDescs = {};
 	for (uint32_t i = 0; i < 4; ++i)
 	{
-		attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachmentDescs[i].samples = sampleCount;
 		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -1095,60 +1157,79 @@ void VulkanDeferredApplication::_CreateDescriptorSets()
 	descSetAllocInfo1.pSetLayouts = &offScreenDescriptorSetLayout;
 
 
-	for (int i = 0; i < _models.size(); i++)
-	{
+
 	
-		//OffScreen (scene)
-		vk::tools::ErrorCheck(vkAllocateDescriptorSets(_renderer->GetVulkanDevice(), &descSetAllocInfo1, &_models[i]->descriptorSet));
+	//OffScreen (scene)
+	vk::tools::ErrorCheck(vkAllocateDescriptorSets(_renderer->GetVulkanDevice(), &descSetAllocInfo1, &_models[0]->descriptorSet));
 
-		VkDescriptorBufferInfo buffer_info = {};
-		buffer_info.buffer = offScreenVertexUBOBuffer.buffer;
-		buffer_info.offset = 0;
-		buffer_info.range = sizeof(uboVS);
+	VkDescriptorBufferInfo buffer_info = {};
+	buffer_info.buffer = offScreenVertexUBOBuffer.buffer;
+	buffer_info.offset = 0;
+	buffer_info.range = sizeof(uboVS);
 
-		VkDescriptorBufferInfo dynamic_buffer_info = {};
-		dynamic_buffer_info.buffer = dynamicUboBuffer.buffer;
-		dynamic_buffer_info.offset = 0;
-		dynamic_buffer_info.range = sizeof(glm::mat4);
+	VkDescriptorBufferInfo dynamic_buffer_info = {};
+	dynamic_buffer_info.buffer = dynamicUboBuffer.buffer;
+	dynamic_buffer_info.offset = 0;
+	dynamic_buffer_info.range = sizeof(glm::mat4);
 
-		VkDescriptorImageInfo image_info = {};
-		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		image_info.imageView = _textures[_models[i]->model->materialID].imageView;
-		image_info.sampler = _textures[_models[i]->model->materialID].sampler;
+	VkDescriptorBufferInfo material_data_info = {};
+	material_data_info.buffer = materialIDBuffer.buffer;
+	material_data_info.offset = 0;
+	material_data_info.range = static_cast<uint32_t>(materialIDs.size()) * sizeof(materialInfo);
 
-		std::vector<VkWriteDescriptorSet> descriptor_writes_model;
-		//Binding 0: Vertex Shader UBO
-		descriptor_writes_model.resize(3);
-		descriptor_writes_model[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptor_writes_model[0].dstSet = _models[i]->descriptorSet;
-		descriptor_writes_model[0].dstBinding = 0;
-		descriptor_writes_model[0].dstArrayElement = 0;
-		descriptor_writes_model[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptor_writes_model[0].descriptorCount = 1;
-		descriptor_writes_model[0].pImageInfo = 0;
-		descriptor_writes_model[0].pBufferInfo = &buffer_info;
+	uint32_t arraySize = _textures.size();
 
-		descriptor_writes_model[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptor_writes_model[1].dstSet = _models[i]->descriptorSet;
-		descriptor_writes_model[1].dstBinding = 1;
-		descriptor_writes_model[1].dstArrayElement = 0;
-		descriptor_writes_model[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-		descriptor_writes_model[1].descriptorCount = 1;
-		descriptor_writes_model[1].pImageInfo = 0;
-		descriptor_writes_model[1].pBufferInfo = &dynamic_buffer_info;
+	std::vector<VkDescriptorImageInfo> diffuse_array_image_info = {};
+	diffuse_array_image_info.resize(static_cast<uint32_t>(_textures.size()));
 
-		descriptor_writes_model[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptor_writes_model[2].dstSet = _models[i]->descriptorSet;
-		descriptor_writes_model[2].dstBinding = 2;
-		descriptor_writes_model[2].dstArrayElement = 0;
-		descriptor_writes_model[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptor_writes_model[2].descriptorCount = 1;
-		descriptor_writes_model[2].pImageInfo = &image_info;
-		descriptor_writes_model[2].pBufferInfo = 0;
-
-
-		vkUpdateDescriptorSets(_renderer->GetVulkanDevice(), static_cast<uint32_t>(descriptor_writes_model.size()), descriptor_writes_model.data(), 0, nullptr);
+	for (size_t i = 0; i < diffuse_array_image_info.size(); i++)
+	{
+		diffuse_array_image_info[i].sampler = _textures[i].sampler;
+		diffuse_array_image_info[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		diffuse_array_image_info[i].imageView = _textures[i].imageView;
 	}
+	std::vector<VkWriteDescriptorSet> descriptor_writes_model;
+	//Binding 0: Vertex Shader UBO
+	descriptor_writes_model.resize(4);
+	descriptor_writes_model[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptor_writes_model[0].dstSet = _models[0]->descriptorSet;
+	descriptor_writes_model[0].dstBinding = 0;
+	descriptor_writes_model[0].dstArrayElement = 0;
+	descriptor_writes_model[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptor_writes_model[0].descriptorCount = 1;
+	descriptor_writes_model[0].pImageInfo = 0;
+	descriptor_writes_model[0].pBufferInfo = &buffer_info;
+
+	descriptor_writes_model[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptor_writes_model[1].dstSet = _models[0]->descriptorSet;
+	descriptor_writes_model[1].dstBinding = 1;
+	descriptor_writes_model[1].dstArrayElement = 0;
+	descriptor_writes_model[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	descriptor_writes_model[1].descriptorCount = 1;
+	descriptor_writes_model[1].pImageInfo = 0;
+	descriptor_writes_model[1].pBufferInfo = &dynamic_buffer_info;
+
+	descriptor_writes_model[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptor_writes_model[2].dstSet = _models[0]->descriptorSet;
+	descriptor_writes_model[2].dstBinding = 2;
+	descriptor_writes_model[2].dstArrayElement = 0;
+	descriptor_writes_model[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptor_writes_model[2].descriptorCount = static_cast<uint32_t>(diffuse_array_image_info.size());
+	descriptor_writes_model[2].pImageInfo = diffuse_array_image_info.data();
+	descriptor_writes_model[2].pBufferInfo = 0;
+
+	descriptor_writes_model[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptor_writes_model[3].dstSet = _models[0]->descriptorSet;
+	descriptor_writes_model[3].dstBinding = 3;
+	descriptor_writes_model[3].dstArrayElement = 0;
+	descriptor_writes_model[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	descriptor_writes_model[3].descriptorCount = 1;
+	descriptor_writes_model[3].pImageInfo = 0;
+	descriptor_writes_model[3].pBufferInfo = &material_data_info;
+
+
+	vkUpdateDescriptorSets(_renderer->GetVulkanDevice(), static_cast<uint32_t>(descriptor_writes_model.size()), descriptor_writes_model.data(), 0, nullptr);
+	
 
 
 
@@ -1163,15 +1244,15 @@ void VulkanDeferredApplication::_CreateDescriptorSets()
 
 	vk::tools::ErrorCheck(vkAllocateDescriptorSets(_renderer->GetVulkanDevice(), &shadowDescSetAllocInfo, &shadowDescriptorSet));
 
-	VkDescriptorBufferInfo buffer_info = {};
-	buffer_info.buffer = offScreenVertexUBOBuffer.buffer;
-	buffer_info.offset = 0;
-	buffer_info.range = sizeof(uboVS);
-
-	VkDescriptorBufferInfo dynamic_buffer_info = {};
-	dynamic_buffer_info.buffer = dynamicUboBuffer.buffer;
-	dynamic_buffer_info.offset = 0;
-	dynamic_buffer_info.range = sizeof(glm::mat4);
+	VkDescriptorBufferInfo shadow_buffer_info = {};
+	shadow_buffer_info.buffer = offScreenVertexUBOBuffer.buffer;
+	shadow_buffer_info.offset = 0;
+	shadow_buffer_info.range = sizeof(uboVS);
+	
+	VkDescriptorBufferInfo shadow_dynamic_buffer_info = {};
+	shadow_dynamic_buffer_info.buffer = dynamicUboBuffer.buffer;
+	shadow_dynamic_buffer_info.offset = 0;
+	shadow_dynamic_buffer_info.range = sizeof(glm::mat4);
 
 	VkDescriptorBufferInfo light_matrix_buffer_info = {};
 	light_matrix_buffer_info.buffer = lightViewMatrixBuffer.buffer;
@@ -1190,7 +1271,7 @@ void VulkanDeferredApplication::_CreateDescriptorSets()
 	shadow_descriptor_writes_model[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	shadow_descriptor_writes_model[0].descriptorCount = 1;
 	shadow_descriptor_writes_model[0].pImageInfo = 0;
-	shadow_descriptor_writes_model[0].pBufferInfo = &buffer_info;
+	shadow_descriptor_writes_model[0].pBufferInfo = &shadow_buffer_info;
 
 	shadow_descriptor_writes_model[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	shadow_descriptor_writes_model[1].dstSet = shadowDescriptorSet;
@@ -1199,7 +1280,7 @@ void VulkanDeferredApplication::_CreateDescriptorSets()
 	shadow_descriptor_writes_model[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	shadow_descriptor_writes_model[1].descriptorCount = 1;
 	shadow_descriptor_writes_model[1].pImageInfo = 0;
-	shadow_descriptor_writes_model[1].pBufferInfo = &dynamic_buffer_info;
+	shadow_descriptor_writes_model[1].pBufferInfo = &shadow_dynamic_buffer_info;
 
 	shadow_descriptor_writes_model[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	shadow_descriptor_writes_model[2].dstSet = shadowDescriptorSet;
@@ -1324,10 +1405,17 @@ void VulkanDeferredApplication::_CreateDescriptorSetLayout()
 	VkDescriptorSetLayoutBinding texture_layout_binding = {};
 	texture_layout_binding.binding = 2;
 	texture_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	texture_layout_binding.descriptorCount = 1;
+	texture_layout_binding.descriptorCount = static_cast<uint32_t>(_textures.size());;
 	texture_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	std::vector<VkDescriptorSetLayoutBinding> offScreenDescriptorSetLayoutBindings = { ubo_layout_binding, dynamic_model_layout_binding, texture_layout_binding };
+	VkDescriptorSetLayoutBinding material_ID_layout_binding = {};
+	material_ID_layout_binding.binding = 3;
+	material_ID_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	material_ID_layout_binding.descriptorCount = 1;
+	material_ID_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+
+	std::vector<VkDescriptorSetLayoutBinding> offScreenDescriptorSetLayoutBindings = { ubo_layout_binding, dynamic_model_layout_binding, texture_layout_binding, material_ID_layout_binding };
 	VkDescriptorSetLayoutCreateInfo offScreenDescriptorLayoutCreateInfo = {};
 	offScreenDescriptorLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	offScreenDescriptorLayoutCreateInfo.pBindings = offScreenDescriptorSetLayoutBindings.data();
@@ -1449,7 +1537,7 @@ void VulkanDeferredApplication::CreateShadowPassCommandBuffers()
 	scissor.extent.height = shadowFrameBuffer.height;
 	scissor.offset = { 0,0 };
 	vkCmdSetScissor(shadowCmdBuffer, 0, 1, &scissor);
-	vkCmdBindPipeline(shadowCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::shadowMap]);
+	
 	VkDeviceSize offsets[1] = { 0 };
 
 	//Loop for each model in our scene
@@ -1458,10 +1546,11 @@ void VulkanDeferredApplication::CreateShadowPassCommandBuffers()
 		//Dynamic offset to get the correct model matrix from the dynamic buffer
 		uint32_t dynamicOffset = i * static_cast<uint32_t>(dynamicAlignment);
 		//binding descriptor sets and drawing model on the screen
+		vkCmdBindPipeline(shadowCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::shadowMap]);
 		vkCmdBindDescriptorSets(shadowCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::shadowMap], 0, 1, &shadowDescriptorSet, 1, &dynamicOffset);
-		vkCmdBindVertexBuffers(shadowCmdBuffer, 0, 1, &_models[i]->model->GetVertexBuffer()->buffer, offsets);
-		vkCmdBindIndexBuffer(shadowCmdBuffer, _models[i]->model->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
-		vkCmdDrawIndexed(shadowCmdBuffer, _models[i]->model->GetIndexCount(), 1, 0, 0, 0);
+		vkCmdBindVertexBuffers(shadowCmdBuffer, 0, 1, &_models[0]->model->GetVertexBuffer()->buffer, offsets);
+		vkCmdBindIndexBuffer(shadowCmdBuffer, _models[0]->model->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(shadowCmdBuffer, _models[0]->model->GetIndexCount(), 1, 0, 0, 0);
 	}
 
 
@@ -1534,7 +1623,6 @@ void VulkanDeferredApplication::CreateDeferredCommandBuffers()
 		scissor.extent.height = deferredOffScreenFrameBuffer.height;
 		scissor.offset = { 0,0 };
 		vkCmdSetScissor(offScreenCmdBuffer, 0, 1, &scissor);
-		vkCmdBindPipeline(offScreenCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::offscreen]);
 		VkDeviceSize offsets[1] = { 0 };
 		
 		//Loop for each model in our scene
@@ -1542,12 +1630,13 @@ void VulkanDeferredApplication::CreateDeferredCommandBuffers()
 		{
 			//Dynamic offset to get the correct model matrix from the dynamic buffer
 			uint32_t dynamicOffset = i * static_cast<uint32_t>(dynamicAlignment);
+
 			//binding descriptor sets and drawing model on the screen
-			
-			vkCmdBindDescriptorSets(offScreenCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::offscreen], 0, 1, &_models[i]->descriptorSet, 1, &dynamicOffset);
-			vkCmdBindVertexBuffers(offScreenCmdBuffer, 0, 1, &_models[i]->model->GetVertexBuffer()->buffer, offsets);
-			vkCmdBindIndexBuffer(offScreenCmdBuffer, _models[i]->model->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
-			vkCmdDrawIndexed(offScreenCmdBuffer, _models[i]->model->GetIndexCount(), 1, 0, 0, 0);
+			vkCmdBindPipeline(offScreenCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::offscreen]);
+			vkCmdBindDescriptorSets(offScreenCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::offscreen], 0, 1, &_models[0]->descriptorSet, 1, &dynamicOffset);
+			vkCmdBindVertexBuffers(offScreenCmdBuffer, 0, 1, &_models[0]->model->GetVertexBuffer()->buffer, offsets);
+			vkCmdBindIndexBuffer(offScreenCmdBuffer, _models[0]->model->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdDrawIndexedIndirect(offScreenCmdBuffer, indirectCommandsBuffer.buffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
 		}
 
 

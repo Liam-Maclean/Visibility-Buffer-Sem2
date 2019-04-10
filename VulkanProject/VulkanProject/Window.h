@@ -113,6 +113,9 @@ protected:
 	void _CreateAttachment(VkFormat format, VkImageUsageFlagBits usageFlags, vk::wrappers::FrameBufferAttachment * frameBufferAttachment, vk::wrappers::ShadowFrameBuffer frameBuffer);
 	void _CreateAttachment(VkFormat format, VkImageUsageFlagBits usageFlags, vk::wrappers::FrameBufferAttachment* frameBufferAttachment, vk::wrappers::GFrameBuffer frameBuffer);
 
+	//Sample count
+	VkSampleCountFlagBits GetMaxUsableSampleCount();
+
 	//==Graphics Pipeline==
 	virtual void _CreateRenderPass();
 	virtual void _CreateGraphicsPipeline();
@@ -245,6 +248,8 @@ protected:
 	VkImageView _textureImageView;
 	VkSampler _textureSampler;
 	VkDeviceMemory _textureImageMemory;
+
+	VkSampleCountFlagBits sampleCount;
 
 
 	VkImage _depthImages;
