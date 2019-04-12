@@ -101,6 +101,7 @@ protected:
 	void _DeInitWindow();
 
 	//==SwapChain + Framebuffers==
+	void CreateColorResources();
 	void _CreateSwapChain();
 	void _CreateImageViews();
 	void _CreateFramebuffers();
@@ -145,6 +146,7 @@ protected:
 	VkImageView _CreateTextureImageView(VkImage image);
 	VkSampler _CreateTextureSampler();
 	void _CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+	void _CreateImage(uint32_t width, uint32_t height, VkSampleCountFlagBits samples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage & image, VkDeviceMemory & imageMemory);
 
 
 	void _TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
@@ -251,6 +253,9 @@ protected:
 
 	VkSampleCountFlagBits sampleCount;
 
+	VkImage colorImage;
+	VkDeviceMemory colorMemory;
+	VkImageView colorImageView;
 
 	VkImage _depthImages;
 	VkDeviceMemory _depthImagesMemory;

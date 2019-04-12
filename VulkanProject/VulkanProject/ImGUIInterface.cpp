@@ -304,7 +304,7 @@ void ImGUIInterface::initResources(VkRenderPass renderPass, VkQueue copyQueue)
 
 	VkPipelineMultisampleStateCreateInfo multisampleStateInfo = {};
 	multisampleStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisampleStateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampleStateInfo.rasterizationSamples = VK_SAMPLE_COUNT_8_BIT;
 	multisampleStateInfo.flags = 0;
 	multisampleStateInfo.pSampleMask = 0;
 

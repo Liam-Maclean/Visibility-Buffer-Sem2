@@ -373,6 +373,7 @@ void VulkanDeferredApplication::_CreateGraphicsPipeline()
 	VkPipelineVertexInputStateCreateInfo emptyVertexInputState = {};
 	emptyVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
+	multisampleStateInfo.rasterizationSamples = sampleCount;
 	pipelineCreateInfo.pVertexInputState = &emptyVertexInputState;
 	
 	pipelineCreateInfo.layout = _pipelineLayout[PipelineType::deferred];

@@ -154,7 +154,6 @@ layout (constant_id = 0) const int NUM_SAMPLES = 8;
 void main()
 {
     vec4 visRaw = texelFetch(inVBTexture, ivec2(gl_FragCoord.xy), gl_SampleID);
-	//uint visRaw = texelFetch(inVBTexture, ivec2(gl_FragCoord.xy), gl_SampleID);
 	
 	//uint alphaBit_drawID_triID = visRaw;
     // Unpack float4 render target data into uint to extract data
@@ -287,7 +286,7 @@ void main()
 				//Test lighting for a single directional light structure
 				lightDir = directionalLightData[i].direction;
 			
-			
+				lightDir = normalize(lightDir);
 				//get light intensity of the dot product of the normal and light direction
 				lightIntensity = max(dot(normal, lightDir.xyz), 0.0f);
 			

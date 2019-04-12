@@ -4,6 +4,7 @@
 void VisibilityBuffer::InitialiseVulkanApplication()
 {
 	PrepareScene();
+	//sampleCount = VK_SAMPLE_COUNT_1_BIT;
 	VkSemaphoreCreateInfo semaphoreCreateInfo{};
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore));
@@ -445,7 +446,7 @@ void VisibilityBuffer::_CreateGraphicsPipeline()
 	emptyVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
 	pipelineCreateInfo.pVertexInputState = &emptyVertexInputState;
-
+	multisampleStateInfo.rasterizationSamples = sampleCount;
 	pipelineCreateInfo.layout = _pipelineLayout[PipelineType::vbShade];
 
 	//Final composition graphics pipeline
@@ -459,6 +460,7 @@ void VisibilityBuffer::_CreateGraphicsPipeline()
 
 	multisampleStateInfo.rasterizationSamples = sampleCount;
 	multisampleStateInfo.alphaToCoverageEnable = VK_FALSE;
+
 
 	rasterizerCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
