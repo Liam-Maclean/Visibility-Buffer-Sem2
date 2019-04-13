@@ -24,7 +24,7 @@ VulkanWindow::VulkanWindow(Renderer* renderer, int width, int height)
 //Prepares the base of the scene
 void VulkanWindow::PrepareScene()
 {
-	sampleCount = VulkanWindow::GetMaxUsableSampleCount();
+	sampleCount = VK_SAMPLE_COUNT_1_BIT;
 	VulkanWindow::_InitSurface();
 	VulkanWindow::_CreateSemaphores();
 	VulkanWindow::_CreateSwapChain();
@@ -1193,6 +1193,83 @@ void VulkanWindow::_RecreateSwapChain()
 	_CreateDepthResources();
 	_CreateFramebuffers();
 	_CreateCommandBuffers();
+}
+
+void VulkanWindow::_CreateAttachment(VkFormat format, VkImageUsageFlagBits usageFlags, vk::wrappers::FrameBufferAttachment * frameBufferAttachment, vk::wrappers::OSColorFrameBuffer frameBuffer)
+{
+	//Initialise local variables
+	VkImageAspectFlags aspectMask = 0;
+	VkImageLayout imageLayout;
+
+	//Set the attachment format
+	frameBufferAttachment->format = format;
+
+	//if the attachment we're using is not the depth test
+	if (usageFlags & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+	{
+		//set the aspect mask to image color bit
+		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	}
+	//if the attachment we're using is the depth test
+	if (usageFlags & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+	{
+		//set the depth test mask and image stencil flags and change image layout to depth stencil optimal
+		aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	}
+
+	//make sure the aspect mask is greater than 0 (Depth test or image color attachment flags have been met)
+	assert(aspectMask > 0);
+
+	//Set up create info for the image for the framebuffer using format, and framebuffer we have
+	VkImageCreateInfo imageCreateInfo = {};
+	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageCreateInfo.format = format;
+	imageCreateInfo.extent.width = frameBuffer.width;
+	imageCreateInfo.extent.height = frameBuffer.height;
+	imageCreateInfo.extent.depth = 1;
+	imageCreateInfo.mipLevels = 1;
+	imageCreateInfo.arrayLayers = 1;
+	imageCreateInfo.samples = sampleCount;
+	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageCreateInfo.usage = usageFlags | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+	//Initialise mem alloc and mem requirement variables
+	VkMemoryAllocateInfo memAlloc = {};
+	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	VkMemoryRequirements memReqs;
+
+	//Create the image for the framebuffer and check the memory requirements to bind and allocate memory for the image
+	vk::tools::ErrorCheck(vkCreateImage(_renderer->GetVulkanDevice(), &imageCreateInfo, nullptr, &frameBufferAttachment->image));
+	vkGetImageMemoryRequirements(_renderer->GetVulkanDevice(), frameBufferAttachment->image, &memReqs);
+	memAlloc.allocationSize = memReqs.size;
+	memAlloc.memoryTypeIndex = _renderer->_GetMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	vk::tools::ErrorCheck(vkAllocateMemory(_renderer->GetVulkanDevice(), &memAlloc, nullptr, &frameBufferAttachment->mem));
+	vk::tools::ErrorCheck(vkBindImageMemory(_renderer->GetVulkanDevice(), frameBufferAttachment->image, frameBufferAttachment->mem, 0));
+
+	//Set up image view create info to create the view for the image buffer
+	VkImageViewCreateInfo imageViewCreateInfo = {};
+	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	imageViewCreateInfo.format = format;
+	imageViewCreateInfo.components = {
+		VK_COMPONENT_SWIZZLE_R,
+		VK_COMPONENT_SWIZZLE_G,
+		VK_COMPONENT_SWIZZLE_B,
+		VK_COMPONENT_SWIZZLE_A
+	};
+	imageViewCreateInfo.subresourceRange = {};
+	imageViewCreateInfo.subresourceRange.aspectMask = aspectMask;
+	imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+	imageViewCreateInfo.subresourceRange.levelCount = 1;
+	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+	imageViewCreateInfo.subresourceRange.layerCount = 1;
+	imageViewCreateInfo.image = frameBufferAttachment->image;
+
+	//Create the image view for the frameBufferAttachment
+	vk::tools::ErrorCheck(vkCreateImageView(_renderer->GetVulkanDevice(), &imageViewCreateInfo, nullptr, &frameBufferAttachment->view));
 }
 
 //Creates an attachment for a framebuffer and framebuffer image view

@@ -113,6 +113,14 @@ namespace vk
 			VkRenderPass renderPass;
 		};
 
+		//Off Screen Color FrameBuffer wrapper (for timings above 1080p resolution)
+		struct OSColorFrameBuffer
+		{
+			int32_t width, height;
+			VkFramebuffer frameBuffer;
+			FrameBufferAttachment color, depth;
+			VkRenderPass renderPass;
+		};
 		
 
 		//Texture wrapper class

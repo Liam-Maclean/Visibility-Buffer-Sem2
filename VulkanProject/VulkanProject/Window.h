@@ -63,6 +63,7 @@ enum PipelineType
 	standard,
 	wireframe,
 	offscreen,
+	offscreenColor,
 	deferred,
 	cellShaded,
 	triangleFilter,
@@ -110,6 +111,7 @@ protected:
 	void _DeInitImageViews();
 	void _CleanUpSwapChain();
 	void _RecreateSwapChain();
+	void _CreateAttachment(VkFormat format, VkImageUsageFlagBits usageFlags, vk::wrappers::FrameBufferAttachment* frameBufferAttachment, vk::wrappers::OSColorFrameBuffer frameBuffer);
 	void _CreateAttachment(VkFormat format, VkImageUsageFlagBits usageFlags, vk::wrappers::FrameBufferAttachment* frameBufferAttachment, vk::wrappers::VFrameBuffer frameBuffer);
 	void _CreateAttachment(VkFormat format, VkImageUsageFlagBits usageFlags, vk::wrappers::FrameBufferAttachment * frameBufferAttachment, vk::wrappers::ShadowFrameBuffer frameBuffer);
 	void _CreateAttachment(VkFormat format, VkImageUsageFlagBits usageFlags, vk::wrappers::FrameBufferAttachment* frameBufferAttachment, vk::wrappers::GFrameBuffer frameBuffer);

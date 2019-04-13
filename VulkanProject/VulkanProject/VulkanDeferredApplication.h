@@ -9,7 +9,9 @@
 #include "ImGUIInterface.h"
 #include <chrono>
 #include <iostream>
-#define TEX_DIMENSIONS 4096;
+#define TEX_DIMENSIONS 2048
+#define OFFSCREEN_WIDTH 1920
+#define OFFSCREEN_HEIGHT 1080
 
 class VulkanDeferredApplication : public VulkanWindow
 {
@@ -76,6 +78,9 @@ public:
 	void _CreateDescriptorPool() override;
 	void _CreateDescriptorSets() override;
 	void _CreateDescriptorSetLayout() override;
+	void _CreateOffScreenColorRenderPass();
+	void _CreateOffScreenColorPipeline();
+	void _CreateOffScreenColorCommandBuffers();
 	void _CreateShaderBuffer(VkDevice device, VkDeviceSize size, VkBuffer* vertexBuffer, VkDeviceMemory* vertexBufferMemory, VkBufferUsageFlagBits bufferStage, void *data);
 	void SetUpUniformBuffers();
 	void CreateShadowRenderPass();
@@ -117,9 +122,13 @@ public:
 	VkSemaphore renderCompleteSemaphore = VK_NULL_HANDLE;
 	VkSemaphore offScreenSemaphore = VK_NULL_HANDLE;
 	VkSemaphore shadowSemaphore = VK_NULL_HANDLE;
+	VkSemaphore offScreenColorSemaphore = VK_NULL_HANDLE;
+
 
 	VkCommandBuffer shadowCmdBuffer = VK_NULL_HANDLE;
 	VkCommandBuffer offScreenCmdBuffer = VK_NULL_HANDLE;
+	VkCommandBuffer offScreenColorCmdBuffers = VK_NULL_HANDLE;
+
 
 	Camera* camera;
 
@@ -164,6 +173,11 @@ public:
 
 	int glfwOldKey;
 	int glfwNewKey;
+
+	
+
+	//Off screen render pass stuff
+	vk::wrappers::OSColorFrameBuffer offScreenColorFrameBuffer;
 
 };
 
