@@ -27,9 +27,12 @@ public:
 
 		std::array<float, 50> frameTimesMRT{};
 		double frameTimeMinMRT = 0.0f, frameTimeMaxMRT = 0.0f;
+		double averageMicrosecondsMRT;
 
 		std::array<float, 50> frameTimesShading{};
 		double frameTimeMinShading = 0.0f, frameTimeMaxShading = 0.0f;
+		double averageMicrosecondsShading;
+
 		float lightTimer;
 	}uiSettings;
 

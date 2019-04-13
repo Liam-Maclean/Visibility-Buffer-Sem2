@@ -10,8 +10,8 @@
 #include <chrono>
 #include <iostream>
 #define TEX_DIMENSIONS 2048
-#define OFFSCREEN_WIDTH 1920
-#define OFFSCREEN_HEIGHT 1080
+#define OFFSCREEN_WIDTH 1280 
+#define OFFSCREEN_HEIGHT 720
 
 class VulkanDeferredApplication : public VulkanWindow
 {

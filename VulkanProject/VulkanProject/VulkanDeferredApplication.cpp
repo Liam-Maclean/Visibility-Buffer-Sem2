@@ -186,13 +186,12 @@ void VulkanDeferredApplication::DrawFrame()
 
 
 	vkDeviceWaitIdle(_renderer->GetVulkanDevice());
-
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.signalSemaphoreCount = 1;
-
-
+	submitInfo.pWaitDstStageMask = waitStages;
 	// Wait for swap chain presentation to finish and ready submit info to fill G-Buffer
 	submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
 	submitInfo.pSignalSemaphores = &shadowSemaphore;
@@ -203,7 +202,7 @@ void VulkanDeferredApplication::DrawFrame()
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
 	auto end = std::chrono::high_resolution_clock::now();
-	frameTimeMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+	frameTimeMRT = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 	imGui->uiSettings.millisecondsMRT = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 	imGui->uiSettings.microsecondsMRT = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 	imGui->uiSettings.nanosecondsMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
@@ -243,7 +242,7 @@ void VulkanDeferredApplication::DrawFrame()
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
 	end = std::chrono::high_resolution_clock::now();
-	frameTimeShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+	frameTimeShading = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 	imGui->uiSettings.millisecondsShading = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 	imGui->uiSettings.microsecondsShading = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 	imGui->uiSettings.nanosecondsShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
@@ -599,11 +598,12 @@ void VulkanDeferredApplication::_CreateGeometry()
 	//Loads the sponza scene
 	std::vector<std::string> textureFilepaths;
 
-	houseModel = new ImportedModel("Textures/Sponza/sponza.obj", true, "Textures/Sponza/", textureFilepaths);
+	houseModel = new ImportedModel("Textures/Sponza/sponza.obj", true, "Textures/sponza/", textureFilepaths);
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
 	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
 	houseModel->GetVertexBuffer()->SetUpDescriptorSet();
+
 
 	//Crytek Sponza scene
 	//BaseModel::LoadMeshFromFile("Textures/Sponza/sponza.obj", "Textures/Sponza/", true, _meshes, textureFilepaths);

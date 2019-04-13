@@ -18,15 +18,20 @@ void ImportedModel::LoadMeshFromFile(std::string modelPath, bool hasTexCoords, s
 
 	std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
 
+	std::cout << uniqueVertices.max_size() << std::endl;
+
 	parts.clear();
 	parts.resize(shapes.size());
-
+	std::cout << indices.max_size() << std::endl;
+	std::cout << vertices.max_size();
 	vertexCount = 0;
 	indexCount = 0;
 
+	//vertices.resize(attrib.vertices.size());
+
 	int shapeItterator = 0;
 
-	for (const auto& shape : shapes) {
+ 	for (const auto& shape : shapes) {
 
 
 		parts[shapeItterator].indexBase = indexCount;
@@ -73,14 +78,22 @@ void ImportedModel::LoadMeshFromFile(std::string modelPath, bool hasTexCoords, s
 			if (uniqueVertices.count(vertex) == 0) {
 				uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
 				vertices.push_back(vertex);
+				vertices.resize(vertices.size());
+				
 			}
 			
-			
-			parts[shapeItterator].materialID = shape.mesh.material_ids[0];
 			indices.push_back(uniqueVertices[vertex]);
 			indexCount++;
 		}
 
+		if (shape.mesh.material_ids[0] != NULL)
+		{
+			parts[shapeItterator].materialID = shape.mesh.material_ids[0];
+		}
+		else
+		{
+			parts[shapeItterator].materialID = 0;
+		}
 		parts[shapeItterator].indexCount = (shape.mesh.indices.size());
 		parts[shapeItterator].vertexCount = (shape.mesh.indices.size() / 3);
 		shapeItterator++;
