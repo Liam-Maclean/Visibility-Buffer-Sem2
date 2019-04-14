@@ -9,8 +9,9 @@
 #include "ImGUIInterface.h"
 #include <chrono>
 
-#define TEX_DIMENSIONS 4096;
-
+#define TEX_DIMENSIONS 2048
+#define OFFSCREEN_WIDTH 1920
+#define OFFSCREEN_HEIGHT 1080
 
 class VisibilityBuffer :
 	public VulkanWindow
@@ -88,6 +89,9 @@ public:
 	void _CreateShadowCommandBuffers();
 	void _CreateVIDCommandBuffers();
 	void _CreateVertexFilteringCommandBuffers();
+	void _CreateOffScreenColorRenderPass();
+	void _CreateOffScreenColorPipeline();
+	void _CreateOffScreenColorCommandBuffers();
 	void _CreateCommandBuffers() override;
 	void _CreateVertexDescriptions();
 	void _CreateDescriptorPool() override;
@@ -97,6 +101,8 @@ public:
 	void DrawFrame() override;
 	void _CreateGraphicsPipeline() override;
 	void _CreateShadowPipeline();
+
+	vk::wrappers::OSColorFrameBuffer offScreenColorFrameBuffer;
 
 	ImGUIInterface *imGui = nullptr;
 
@@ -152,7 +158,7 @@ public:
 
 	VkCommandBuffer IDCmdBuffer = VK_NULL_HANDLE;
 	VkCommandBuffer shadowCmdBuffer = VK_NULL_HANDLE;
-
+	VkCommandBuffer offScreenColorCmdBuffers = VK_NULL_HANDLE;
 
 	VkDescriptorSet IDDescriptorSet;
 	VkDescriptorSet compositionDescriptorSet;
@@ -164,6 +170,7 @@ public:
 	VkSemaphore shadowSemaphore = VK_NULL_HANDLE;
 	VkSemaphore offScreenSemaphore = VK_NULL_HANDLE;
 	VkSemaphore IDPassSemaphore = VK_NULL_HANDLE;
+	VkSemaphore offScreenColorSemaphore = VK_NULL_HANDLE;
 
 	std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
 	std::vector<materialInfo> materialIDs;

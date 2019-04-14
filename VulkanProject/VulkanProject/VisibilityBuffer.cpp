@@ -4,27 +4,30 @@
 void VisibilityBuffer::InitialiseVulkanApplication()
 {
 	PrepareScene();
-	//sampleCount = VK_SAMPLE_COUNT_1_BIT;
 	VkSemaphoreCreateInfo semaphoreCreateInfo{};
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore));
 	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore));
 	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &shadowSemaphore));
+	vk::tools::ErrorCheck(vkCreateSemaphore(_renderer->GetVulkanDevice(), &semaphoreCreateInfo, nullptr, &offScreenColorSemaphore));
 	VisibilityBuffer::CreateImGui();
 	VisibilityBuffer::CreateCamera();
 	VisibilityBuffer::_CreateGeometry();
 	VisibilityBuffer::CreateShadowRenderPass();
+	VisibilityBuffer::_CreateOffScreenColorRenderPass();
 	VisibilityBuffer::CreateVBuffer();
 	VisibilityBuffer::PrepareIndirectData();
 	VisibilityBuffer::_SetUpUniformBuffers(); 
 	VisibilityBuffer::_CreateDescriptorSetLayout();
 	VisibilityBuffer::_CreateVertexDescriptions();
 	VisibilityBuffer::_CreateGraphicsPipeline();
+	VisibilityBuffer::_CreateOffScreenColorPipeline();
 	VisibilityBuffer::_CreateDescriptorPool();
 	VisibilityBuffer::_CreateDescriptorSets();
 	VisibilityBuffer::_CreateShadowCommandBuffers();
 	VisibilityBuffer::_CreateVIDCommandBuffers();
 	VisibilityBuffer::_CreateCommandBuffers();
+	VisibilityBuffer::_CreateOffScreenColorCommandBuffers();
 	VisibilityBuffer::GiveImGuiStaticInformation();
 	VisibilityBuffer::Update();
 }
@@ -776,8 +779,8 @@ void VisibilityBuffer::_CreateShadowCommandBuffers()
 //Creates visibility buffer attachments for the first render pass 
 void VisibilityBuffer::CreateVBuffer()
 {
-	IDFrameBuffer.width = _swapChainExtent.width;
-	IDFrameBuffer.height = _swapChainExtent.height;
+	IDFrameBuffer.width = OFFSCREEN_WIDTH;
+	IDFrameBuffer.height = OFFSCREEN_HEIGHT;
 
 	_CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &IDFrameBuffer.VID, IDFrameBuffer);
 	//_CreateAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &IDFrameBuffer.VID, IDFrameBuffer);
@@ -997,6 +1000,286 @@ void VisibilityBuffer::_CreateVIDCommandBuffers()
 //*Second pass for Visibility buffer
 void VisibilityBuffer::_CreateVertexFilteringCommandBuffers()
 {
+}
+
+void VisibilityBuffer::_CreateOffScreenColorRenderPass()
+{
+
+	offScreenColorFrameBuffer.width = OFFSCREEN_WIDTH;
+	offScreenColorFrameBuffer.height = OFFSCREEN_HEIGHT;
+
+	//Create the color attachments for each screen render
+	_CreateAttachment(_swapChainImageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &offScreenColorFrameBuffer.color, offScreenColorFrameBuffer);
+
+	//depth attachment
+
+	//Find Depth Format
+	VkFormat DepthFormat;
+	DepthFormat = _FindDepthFormat();
+
+	_CreateAttachment(DepthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, &offScreenColorFrameBuffer.depth, offScreenColorFrameBuffer);
+
+
+	//Attachment descriptions for renderpass 
+	std::array<VkAttachmentDescription, 2> attachmentDescs = {};
+	for (uint32_t i = 0; i < attachmentDescs.size(); ++i)
+	{
+		attachmentDescs[i].samples = sampleCount;
+		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+		//if we're on the depth image description
+		if (i == 3)
+		{
+			attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		}
+		else
+		{
+			attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		}
+	}
+
+	//formats
+	attachmentDescs[0].format = offScreenColorFrameBuffer.color.format;
+	attachmentDescs[1].format = offScreenColorFrameBuffer.depth.format;
+
+	std::vector<VkAttachmentReference> colorReferences;
+	colorReferences.push_back({ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+
+	VkAttachmentReference depthReference = {};
+	depthReference.attachment = 1;
+	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.pColorAttachments = colorReferences.data();
+	subpass.colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
+	subpass.pDepthStencilAttachment = &depthReference;
+
+	//Subpass dependencies
+	std::array<VkSubpassDependency, 2> dependencies;
+	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[0].dstSubpass = 0;
+	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	dependencies[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	dependencies[1].srcSubpass = 0;
+	dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	//Create the render pass using the attachments and dependencies data
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.pAttachments = attachmentDescs.data();
+	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescs.size());
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+	renderPassInfo.dependencyCount = 2;
+	renderPassInfo.pDependencies = dependencies.data();
+
+	//Create the render pass to go into the frameBuffer struct
+	vk::tools::ErrorCheck(vkCreateRenderPass(_renderer->GetVulkanDevice(), &renderPassInfo, nullptr, &offScreenColorFrameBuffer.renderPass));
+
+	std::array<VkImageView, 2> attachments;
+	attachments[0] = offScreenColorFrameBuffer.color.view;
+	attachments[1] = offScreenColorFrameBuffer.depth.view;
+
+	VkFramebufferCreateInfo frameBufferCreateInfo = {};
+	frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	frameBufferCreateInfo.pNext = NULL;
+	frameBufferCreateInfo.renderPass = offScreenColorFrameBuffer.renderPass;
+	frameBufferCreateInfo.pAttachments = attachments.data();
+	frameBufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+	frameBufferCreateInfo.width = offScreenColorFrameBuffer.width;
+	frameBufferCreateInfo.height = offScreenColorFrameBuffer.height;
+	frameBufferCreateInfo.layers = 1;
+	vk::tools::ErrorCheck(vkCreateFramebuffer(_renderer->GetVulkanDevice(), &frameBufferCreateInfo, nullptr, &offScreenColorFrameBuffer.frameBuffer));
+}
+
+void VisibilityBuffer::_CreateOffScreenColorPipeline()
+{
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
+	inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	inputAssemblyInfo.flags = 0;
+	inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+
+	VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {};
+	rasterizerCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterizerCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizerCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterizerCreateInfo.depthClampEnable = VK_FALSE;
+	rasterizerCreateInfo.flags = 0;
+	rasterizerCreateInfo.lineWidth = 1.0f;
+
+	VkPipelineColorBlendAttachmentState colorBlendAttachmentState = {};
+	colorBlendAttachmentState.colorWriteMask = 0xf;
+	colorBlendAttachmentState.blendEnable = VK_FALSE;
+
+	VkPipelineColorBlendStateCreateInfo blendStateInfo = {};
+	blendStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	blendStateInfo.attachmentCount = 1;
+	blendStateInfo.pAttachments = &colorBlendAttachmentState;
+
+	VkPipelineDepthStencilStateCreateInfo depthStencilState = {};
+	depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencilState.depthTestEnable = VK_TRUE;
+	depthStencilState.depthWriteEnable = VK_TRUE;
+	depthStencilState.stencilTestEnable = VK_FALSE;
+	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	depthStencilState.depthBoundsTestEnable = VK_FALSE;
+	depthStencilState.minDepthBounds = 0.0f;
+	depthStencilState.maxDepthBounds = 1.0f;
+	depthStencilState.front = {};
+
+
+
+	VkPipelineViewportStateCreateInfo viewportStateInfo = {};
+	viewportStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportStateInfo.scissorCount = 1;
+	viewportStateInfo.viewportCount = 1;
+	viewportStateInfo.flags = 0;
+
+	VkPipelineMultisampleStateCreateInfo multisampleStateInfo = {};
+	multisampleStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampleStateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampleStateInfo.flags = 0;
+	multisampleStateInfo.pSampleMask = 0;
+
+	std::vector<VkDynamicState> dynamicStateEnables = {
+		VK_DYNAMIC_STATE_VIEWPORT,
+		VK_DYNAMIC_STATE_SCISSOR
+	};
+
+	VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
+	dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
+	dynamicStateInfo.pDynamicStates = dynamicStateEnables.data();
+	dynamicStateInfo.flags = 0;
+
+
+	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
+	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
+	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineCreateInfo.layout = _pipelineLayout[PipelineType::vbShade];
+	pipelineCreateInfo.renderPass = offScreenColorFrameBuffer.renderPass;
+	pipelineCreateInfo.flags = 0;
+	pipelineCreateInfo.basePipelineIndex = -1;
+	pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+	pipelineCreateInfo.pInputAssemblyState = &inputAssemblyInfo;
+	pipelineCreateInfo.pRasterizationState = &rasterizerCreateInfo;
+	pipelineCreateInfo.pColorBlendState = &blendStateInfo;
+	pipelineCreateInfo.pMultisampleState = &multisampleStateInfo;
+	pipelineCreateInfo.pViewportState = &viewportStateInfo;
+	pipelineCreateInfo.pDepthStencilState = &depthStencilState;
+	pipelineCreateInfo.pDynamicState = &dynamicStateInfo;
+	pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
+	pipelineCreateInfo.pStages = shaderStages.data();
+
+	VkSpecializationMapEntry specializationEntry{};
+	specializationEntry.constantID = 0;
+	specializationEntry.offset = 0;
+	specializationEntry.size = sizeof(uint32_t);
+
+	uint32_t specializationData = sampleCount;
+
+	VkSpecializationInfo specializationInfo;
+	specializationInfo.mapEntryCount = 1;
+	specializationInfo.pMapEntries = &specializationEntry;
+	specializationInfo.dataSize = sizeof(specializationData);
+	specializationInfo.pData = &specializationData;
+
+
+	//Final Pipeline (after offscreen pass)
+	//Shader loading (Loads shader modules for pipeline)
+	shaderStages[0] = loadShader("Shaders/VisibilityBuffer/VBShade.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = loadShader("Shaders/VisibilityBuffer/VBShade.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[1].pSpecializationInfo = &specializationInfo;
+
+	VkPipelineVertexInputStateCreateInfo emptyVertexInputState = {};
+	emptyVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+	pipelineCreateInfo.pVertexInputState = &emptyVertexInputState;
+	multisampleStateInfo.rasterizationSamples = sampleCount;
+	pipelineCreateInfo.layout = _pipelineLayout[PipelineType::vbShade];
+
+	vk::tools::ErrorCheck(vkCreateGraphicsPipelines(_renderer->GetVulkanDevice(), pipelineCache, 1, &pipelineCreateInfo, nullptr, &graphicsPipelines[PipelineType::offscreenColor]));
+}
+
+void VisibilityBuffer::_CreateOffScreenColorCommandBuffers()
+{
+
+	if (offScreenColorCmdBuffers == VK_NULL_HANDLE)
+	{
+		VkCommandBufferAllocateInfo command_buffer_allocate_info{};
+		command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		command_buffer_allocate_info.commandPool = _commandPool;
+		command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		command_buffer_allocate_info.commandBufferCount = 1;
+
+		vk::tools::ErrorCheck(vkAllocateCommandBuffers(_renderer->GetVulkanDevice(), &command_buffer_allocate_info, &offScreenColorCmdBuffers));
+	}
+
+
+	VkCommandBufferBeginInfo command_buffer_begin_info{};
+	command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+	std::array<VkClearValue, 2> clearValues;
+	clearValues[0].color = { { 0.0f, 0.0f, 0.2f, 0.0f } };
+	clearValues[1].depthStencil = { 1.0f, 0 };
+
+	VkRenderPassBeginInfo render_pass_begin_info = {};
+	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	render_pass_begin_info.renderPass = offScreenColorFrameBuffer.renderPass;
+	render_pass_begin_info.renderArea.extent.width = offScreenColorFrameBuffer.width;
+	render_pass_begin_info.renderArea.extent.height = offScreenColorFrameBuffer.height;
+	render_pass_begin_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	render_pass_begin_info.pClearValues = clearValues.data();
+	render_pass_begin_info.framebuffer = offScreenColorFrameBuffer.frameBuffer;
+
+	vk::tools::ErrorCheck(vkBeginCommandBuffer(offScreenColorCmdBuffers, &command_buffer_begin_info));
+	vkCmdBeginRenderPass(offScreenColorCmdBuffers, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+
+	VkViewport viewport = {};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = (float)offScreenColorFrameBuffer.width;
+	viewport.height = (float)offScreenColorFrameBuffer.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(offScreenColorCmdBuffers, 0, 1, &viewport);
+
+	VkRect2D scissor = {};
+	scissor.extent.width = offScreenColorFrameBuffer.width;
+	scissor.extent.height = offScreenColorFrameBuffer.height;
+	scissor.offset = { 0,0 };
+	vkCmdSetScissor(offScreenColorCmdBuffers, 0, 1, &scissor);
+
+
+	VkDeviceSize offsets[] = { 0 };
+
+
+	vkCmdPushConstants(offScreenColorCmdBuffers, _pipelineLayout[PipelineType::vbShade], VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), &drawModeValue);
+	vkCmdBindPipeline(offScreenColorCmdBuffers, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelines[PipelineType::offscreenColor]);
+	vkCmdBindDescriptorSets(offScreenColorCmdBuffers, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout[PipelineType::vbShade], 0, 1, &compositionDescriptorSet, 0, NULL);
+	vkCmdDraw(offScreenColorCmdBuffers, 3, 1, 0, 0);
+
+	vkCmdEndRenderPass(offScreenColorCmdBuffers);
+	//vkCmdEndRenderPass(_drawCommandBuffers[i]);
+
+	vk::tools::ErrorCheck(vkEndCommandBuffer(offScreenColorCmdBuffers));
 }
 
 //Third Pass for visibility Buffer: Gathers Vertex ID values to redraw the scene
@@ -1727,17 +2010,24 @@ void VisibilityBuffer::DrawFrame()
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 
 
-
-
 	submitInfo.pWaitSemaphores = &shadowSemaphore;
 
 	//// Signal ready with render complete semaphpre
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;
+	submitInfo.pSignalSemaphores = &offScreenColorSemaphore;
 	//
 	//// Submit work
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &_drawCommandBuffers[imageIndex];
 
+	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
+
+
+
+	submitInfo.pWaitSemaphores = &offScreenColorSemaphore;
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &offScreenColorCmdBuffers;
 	start = std::chrono::high_resolution_clock::now();
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
@@ -1746,8 +2036,6 @@ void VisibilityBuffer::DrawFrame()
 	imGui->uiSettings.millisecondsShading = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 	imGui->uiSettings.microsecondsShading = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 	imGui->uiSettings.nanosecondsShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-
-
 
 
 

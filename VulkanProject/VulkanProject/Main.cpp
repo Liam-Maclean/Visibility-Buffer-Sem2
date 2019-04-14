@@ -11,6 +11,6 @@
 int main()
 {
 	Renderer r;
-	VulkanDeferredApplication va(&r,1280,720);
+	VisibilityBuffer va(&r,1280,720);
 	return 0;
 }

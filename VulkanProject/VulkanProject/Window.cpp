@@ -24,7 +24,7 @@ VulkanWindow::VulkanWindow(Renderer* renderer, int width, int height)
 //Prepares the base of the scene
 void VulkanWindow::PrepareScene()
 {
-	sampleCount = VK_SAMPLE_COUNT_1_BIT;
+	sampleCount = VK_SAMPLE_COUNT_8_BIT;
 	VulkanWindow::_InitSurface();
 	VulkanWindow::_CreateSemaphores();
 	VulkanWindow::_CreateSwapChain();
@@ -1470,7 +1470,7 @@ void VulkanWindow::_CreateAttachment(VkFormat format, VkImageUsageFlagBits usage
 	imageCreateInfo.extent.depth = 1;
 	imageCreateInfo.mipLevels = 1;
 	imageCreateInfo.arrayLayers = 1;
-	imageCreateInfo.samples = sampleCount;
+	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL; 
 	imageCreateInfo.usage = usageFlags | VK_IMAGE_USAGE_SAMPLED_BIT;
 	//Initialise mem alloc and mem requirement variables

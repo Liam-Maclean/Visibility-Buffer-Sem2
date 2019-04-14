@@ -186,12 +186,10 @@ void VulkanDeferredApplication::DrawFrame()
 
 
 	vkDeviceWaitIdle(_renderer->GetVulkanDevice());
-	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pWaitDstStageMask = waitStages;
 	// Wait for swap chain presentation to finish and ready submit info to fill G-Buffer
 	submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
 	submitInfo.pSignalSemaphores = &shadowSemaphore;
@@ -804,7 +802,7 @@ void VulkanDeferredApplication::CreateShadowRenderPass()
 	std::array<VkAttachmentDescription, 1> attachmentDescs = {};
 	for (uint32_t i = 0; i < 1; ++i)
 	{
-		attachmentDescs[i].samples = sampleCount;
+		attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
 		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
