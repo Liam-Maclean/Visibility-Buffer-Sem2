@@ -10,8 +10,8 @@
 #include <chrono>
 
 #define TEX_DIMENSIONS 2048
-#define OFFSCREEN_WIDTH 1920
-#define OFFSCREEN_HEIGHT 1080
+#define OFFSCREEN_WIDTH 1280
+#define OFFSCREEN_HEIGHT 720
 
 class VisibilityBuffer :
 	public VulkanWindow
@@ -181,13 +181,20 @@ public:
 
 
 	glm::mat4 inverseVP;
+	double queryTimeMRT;
 
+	int glfwOldKey, glfwNewKey;
+	bool cameraUpdate = false;
 
 	double frameTimeMRT;
 	double frameTimeShading;
 
-	int glfwOldKey, glfwNewKey;
-	bool cameraUpdate = false;
+	uint32_t queryTimeVBIDStart;
+	uint32_t queryTimeVBIDEnd;
+
+	uint32_t queryTimeShadingStart;
+	uint32_t queryTimeShadingEnd;
+	
 
 };
 

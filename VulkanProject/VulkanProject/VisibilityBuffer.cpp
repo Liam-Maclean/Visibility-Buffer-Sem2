@@ -13,6 +13,7 @@ void VisibilityBuffer::InitialiseVulkanApplication()
 	VisibilityBuffer::CreateImGui();
 	VisibilityBuffer::CreateCamera();
 	VisibilityBuffer::_CreateGeometry();
+	VisibilityBuffer::CreateQueryPools();
 	VisibilityBuffer::CreateShadowRenderPass();
 	VisibilityBuffer::_CreateOffScreenColorRenderPass();
 	VisibilityBuffer::CreateVBuffer();
@@ -145,7 +146,7 @@ void VisibilityBuffer::GiveImGuiStaticInformation()
 	{
 		imGui->uiSettings.indices += _models[i]->model->GetIndexCount();
 		imGui->uiSettings.vertices += _models[i]->model->GetVertexCount();
-		imGui->uiSettings.face += (_models[i]->model->GetVertexCount() / 3);
+		imGui->uiSettings.face += (_models[i]->model->GetIndexCount() / 3);
 	}
 }
 
@@ -949,6 +950,10 @@ void VisibilityBuffer::_CreateVIDCommandBuffers()
 	//begin command buffer and start the render pass
 
 	vk::tools::ErrorCheck(vkBeginCommandBuffer(IDCmdBuffer, &cmdBufferBeginInfo));
+	vkCmdResetQueryPool(IDCmdBuffer, VBIDQueryPool, 0, 1);
+	vkCmdResetQueryPool(IDCmdBuffer, VBIDQueryPool, 1, 1);
+
+	vkCmdWriteTimestamp(IDCmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VBIDQueryPool, 0);
 	vkCmdBeginRenderPass(IDCmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 		VkViewport viewport = {};
@@ -991,6 +996,7 @@ void VisibilityBuffer::_CreateVIDCommandBuffers()
 	
 
 	vkCmdEndRenderPass(IDCmdBuffer);
+	vkCmdWriteTimestamp(IDCmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VBIDQueryPool, 1);
 	//End the command buffer drawing
 	vk::tools::ErrorCheck(vkEndCommandBuffer(IDCmdBuffer));
 
@@ -1249,7 +1255,11 @@ void VisibilityBuffer::_CreateOffScreenColorCommandBuffers()
 	render_pass_begin_info.pClearValues = clearValues.data();
 	render_pass_begin_info.framebuffer = offScreenColorFrameBuffer.frameBuffer;
 
+
 	vk::tools::ErrorCheck(vkBeginCommandBuffer(offScreenColorCmdBuffers, &command_buffer_begin_info));
+	vkCmdResetQueryPool(offScreenColorCmdBuffers, VBShadeQueryPool, 0, 1);
+	vkCmdResetQueryPool(offScreenColorCmdBuffers, VBShadeQueryPool, 1, 1);
+	vkCmdWriteTimestamp(offScreenColorCmdBuffers, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VBShadeQueryPool, 0); // Write query #1
 	vkCmdBeginRenderPass(offScreenColorCmdBuffers, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
 	VkViewport viewport = {};
@@ -1278,6 +1288,7 @@ void VisibilityBuffer::_CreateOffScreenColorCommandBuffers()
 
 	vkCmdEndRenderPass(offScreenColorCmdBuffers);
 	//vkCmdEndRenderPass(_drawCommandBuffers[i]);
+	vkCmdWriteTimestamp(offScreenColorCmdBuffers, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VBShadeQueryPool, 1); // Write query #2
 
 	vk::tools::ErrorCheck(vkEndCommandBuffer(offScreenColorCmdBuffers));
 }
@@ -1990,15 +2001,15 @@ void VisibilityBuffer::DrawFrame()
 	// Submit work
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &IDCmdBuffer;
-	auto start = std::chrono::high_resolution_clock::now();
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
-	auto end = std::chrono::high_resolution_clock::now();
-	frameTimeMRT = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-	imGui->uiSettings.millisecondsMRT = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-	imGui->uiSettings.microsecondsMRT = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-	imGui->uiSettings.nanosecondsMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 
+	vkGetQueryPoolResults(_renderer->GetVulkanDevice(), VBIDQueryPool, 0, 1, sizeof(uint32_t), &queryTimeVBIDStart, sizeof(uint32_t), VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+	vkGetQueryPoolResults(_renderer->GetVulkanDevice(), VBIDQueryPool, 1, 1, sizeof(uint32_t), &queryTimeVBIDEnd, sizeof(uint32_t), VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+	imGui->uiSettings.nanosecondsMRT = (queryTimeVBIDEnd - queryTimeVBIDStart);
+	imGui->uiSettings.microsecondsMRT = (queryTimeVBIDEnd - queryTimeVBIDStart) / 1000;
+	imGui->uiSettings.millisecondsMRT = (queryTimeVBIDEnd - queryTimeVBIDStart) / 1000000;
+	frameTimeMRT = imGui->uiSettings.microsecondsMRT;
 
 
 
@@ -2024,21 +2035,23 @@ void VisibilityBuffer::DrawFrame()
 
 
 
+	//OFFSCREEN COLOR RENDER
 	submitInfo.pWaitSemaphores = &offScreenColorSemaphore;
 	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &offScreenColorCmdBuffers;
-	start = std::chrono::high_resolution_clock::now();
+
+	//Submit queue and time
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
-	end = std::chrono::high_resolution_clock::now();
-	frameTimeShading = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-	imGui->uiSettings.millisecondsShading = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-	imGui->uiSettings.microsecondsShading = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-	imGui->uiSettings.nanosecondsShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 
-
-
+	//Get query results from timings in the shading pass
+	vkGetQueryPoolResults(_renderer->GetVulkanDevice(), VBShadeQueryPool, 0, 1, sizeof(uint32_t), &queryTimeShadingStart, sizeof(uint32_t), VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+	vkGetQueryPoolResults(_renderer->GetVulkanDevice(), VBShadeQueryPool, 1, 1, sizeof(uint32_t), &queryTimeShadingEnd, sizeof(uint32_t), VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+	imGui->uiSettings.nanosecondsShading = (queryTimeShadingEnd - queryTimeShadingStart);
+	imGui->uiSettings.microsecondsShading = (queryTimeShadingEnd - queryTimeShadingStart)/1000;
+	imGui->uiSettings.millisecondsShading = (queryTimeShadingEnd - queryTimeShadingStart)/1000000;
+	frameTimeShading = imGui->uiSettings.microsecondsShading;
 
 	VkPresentInfoKHR present_info = {};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

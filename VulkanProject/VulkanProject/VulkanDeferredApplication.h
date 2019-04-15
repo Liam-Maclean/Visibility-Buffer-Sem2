@@ -62,6 +62,7 @@ public:
 
 	void CreateIndirectInformation();
 	void CreateCamera();
+	void CreateQueryPools();
 	void GiveImGuiStaticInformation();
 	void InitialiseVulkanApplication();
 	void Update() override;
@@ -152,7 +153,7 @@ public:
 	vk::wrappers::Buffer lightViewMatrixBuffer;
 	vk::wrappers::Buffer lightViewMatrixBuffershading;
 	glm::mat4 lightViewMatrixShadowPass;
-
+	uint32_t drawModeValue;
 
 
 	vk::wrappers::Buffer dynamicUboBuffer;
@@ -161,9 +162,13 @@ public:
 	vk::wrappers::Buffer fullScreenVertexUBOBuffer;
 	vk::wrappers::Buffer offScreenVertexUBOBuffer;
 
-	VkQueryPool queryPool;
+	VkQueryPool DeferredMRTQueryPool;
+	VkQueryPool DeferredShadeQueryPool;
 
-	uint32_t drawModeValue;
+
+
+
+
 
 	bool LeftMouseDown = true;
 	bool cameraUpdate = false;
@@ -178,6 +183,13 @@ public:
 
 	//Off screen render pass stuff
 	vk::wrappers::OSColorFrameBuffer offScreenColorFrameBuffer;
+
+
+	uint32_t queryTimeMRTStart;
+	uint32_t queryTimeMRTEnd;
+
+	uint32_t queryTimeShadeStart;
+	uint32_t queryTimeShadeEnd;
 
 };
 

@@ -12,6 +12,7 @@ void VulkanDeferredApplication::InitialiseVulkanApplication()
 	VulkanDeferredApplication::CreateImGui();
 	VulkanDeferredApplication::CreateCamera();
 	VulkanDeferredApplication::_CreateGeometry();
+	VulkanDeferredApplication::CreateQueryPools();
 	VulkanDeferredApplication::CreateShadowRenderPass();
 	VulkanDeferredApplication::_CreateOffScreenColorRenderPass();
 	VulkanDeferredApplication::CreateGBuffer();
@@ -23,9 +24,9 @@ void VulkanDeferredApplication::InitialiseVulkanApplication()
 	VulkanDeferredApplication::_CreateOffScreenColorPipeline();
 	VulkanDeferredApplication::_CreateDescriptorPool();
 	VulkanDeferredApplication::_CreateDescriptorSets();
-	VulkanDeferredApplication::CreateShadowPassCommandBuffers();
-	VulkanDeferredApplication::_CreateCommandBuffers();
 	VulkanDeferredApplication::CreateDeferredCommandBuffers();
+	VulkanDeferredApplication::_CreateCommandBuffers();
+	VulkanDeferredApplication::CreateShadowPassCommandBuffers();
 	VulkanDeferredApplication::_CreateOffScreenColorCommandBuffers();
 	VulkanDeferredApplication::GiveImGuiStaticInformation();
 	VulkanDeferredApplication::Update();
@@ -152,6 +153,29 @@ void VulkanDeferredApplication::CreateCamera()
 	
 }
 
+//Creates query pools for timestamps in the framework later on
+void VulkanDeferredApplication::CreateQueryPools()
+{
+	VkQueryPoolCreateInfo VBIDQueryInfo = {};
+	VBIDQueryInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	VBIDQueryInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	VBIDQueryInfo.pNext = 0;
+	VBIDQueryInfo.flags = 0;
+	VBIDQueryInfo.queryCount = 2;
+
+	vkCreateQueryPool(_renderer->GetVulkanDevice(), &VBIDQueryInfo, nullptr, &DeferredMRTQueryPool);
+
+
+	VkQueryPoolCreateInfo VBShadeQueryInfo = {};
+	VBShadeQueryInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	VBShadeQueryInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	VBShadeQueryInfo.pNext = 0;
+	VBShadeQueryInfo.flags = 0;
+	VBShadeQueryInfo.queryCount = 2;
+
+	vkCreateQueryPool(_renderer->GetVulkanDevice(), &VBShadeQueryInfo, nullptr, &DeferredShadeQueryPool);
+}
+
 //Method to give ImGui the static information on the UI that wont change much (Vertex data, indices data, face data, model name)
 void VulkanDeferredApplication::GiveImGuiStaticInformation()
 {
@@ -159,7 +183,7 @@ void VulkanDeferredApplication::GiveImGuiStaticInformation()
 	{
 		imGui->uiSettings.indices += _models[i]->model->GetIndexCount();
 		imGui->uiSettings.vertices += _models[i]->model->GetVertexCount();
-		imGui->uiSettings.face += (_models[i]->model->GetVertexCount() / 3);
+		imGui->uiSettings.face += (_models[i]->model->GetIndexCount() / 3);
 	}
 
 
@@ -196,14 +220,15 @@ void VulkanDeferredApplication::DrawFrame()
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &offScreenCmdBuffer;
 
-	auto start = std::chrono::high_resolution_clock::now();
+
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
-	auto end = std::chrono::high_resolution_clock::now();
-	frameTimeMRT = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-	imGui->uiSettings.millisecondsMRT = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-	imGui->uiSettings.microsecondsMRT = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-	imGui->uiSettings.nanosecondsMRT = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+	vkGetQueryPoolResults(_renderer->GetVulkanDevice(), DeferredMRTQueryPool, 0, 1, sizeof(uint32_t)*2, &queryTimeMRTStart, sizeof(uint32_t), VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+	vkGetQueryPoolResults(_renderer->GetVulkanDevice(), DeferredMRTQueryPool, 1, 1, sizeof(uint32_t)*2, &queryTimeMRTEnd, sizeof(uint32_t), VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+	imGui->uiSettings.nanosecondsMRT = (queryTimeMRTEnd - queryTimeMRTStart);
+	imGui->uiSettings.microsecondsMRT = (queryTimeMRTEnd - queryTimeMRTStart) / 1000;
+	imGui->uiSettings.millisecondsMRT = (queryTimeMRTEnd - queryTimeMRTStart) / 1000000;
+	frameTimeMRT = imGui->uiSettings.microsecondsMRT;
 
 
 
@@ -224,10 +249,9 @@ void VulkanDeferredApplication::DrawFrame()
 	submitInfo.pCommandBuffers = &_drawCommandBuffers[imageIndex];
 
 	//Time the queue duration
-	start = std::chrono::high_resolution_clock::now();
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
-	end = std::chrono::high_resolution_clock::now();
+
 
 	//Set up submit info for framebuffer pass
 	submitInfo.pWaitSemaphores = &offScreenColorSemaphore;
@@ -236,14 +260,15 @@ void VulkanDeferredApplication::DrawFrame()
 	submitInfo.pCommandBuffers = &offScreenColorCmdBuffers;
 
 	//Time the queue duration
-	start = std::chrono::high_resolution_clock::now();
 	vk::tools::ErrorCheck(vkQueueSubmit(_renderer->GetVulkanGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
 	vkQueueWaitIdle(_renderer->GetVulkanGraphicsQueue());
-	end = std::chrono::high_resolution_clock::now();
-	frameTimeShading = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-	imGui->uiSettings.millisecondsShading = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-	imGui->uiSettings.microsecondsShading = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-	imGui->uiSettings.nanosecondsShading = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+
+	vkGetQueryPoolResults(_renderer->GetVulkanDevice(), DeferredShadeQueryPool, 0, 1, sizeof(uint32_t)*2, &queryTimeShadeStart, sizeof(uint32_t), VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+	vkGetQueryPoolResults(_renderer->GetVulkanDevice(), DeferredShadeQueryPool, 1, 1, sizeof(uint32_t)*2, &queryTimeShadeEnd, sizeof(uint32_t), VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+	imGui->uiSettings.nanosecondsShading = (queryTimeShadeEnd - queryTimeShadeStart);
+	imGui->uiSettings.microsecondsShading = (queryTimeShadeEnd - queryTimeShadeStart) / 1000;
+	imGui->uiSettings.millisecondsShading = (queryTimeShadeEnd - queryTimeShadeStart) / 1000000;
+	frameTimeShading = imGui->uiSettings.microsecondsShading;
 
 
 	VkPresentInfoKHR present_info = {};
@@ -453,7 +478,7 @@ void VulkanDeferredApplication::_CreateShadowPipeline()
 
 	VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {};
 	rasterizerCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	rasterizerCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizerCreateInfo.cullMode = VK_CULL_MODE_NONE;
 	rasterizerCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizerCreateInfo.depthClampEnable = VK_FALSE;
@@ -530,8 +555,7 @@ void VulkanDeferredApplication::_CreateShadowPipeline()
 	shaderStages[0] = loadShader("Shaders/Deferred/shadow.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = loadShader("Shaders/Deferred/shadow.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
-	multisampleStateInfo.rasterizationSamples = sampleCount;
-	multisampleStateInfo.alphaToCoverageEnable = VK_TRUE;
+	multisampleStateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	VkPipelineVertexInputStateCreateInfo emptyVertexInputState = {};
 	emptyVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -596,7 +620,7 @@ void VulkanDeferredApplication::_CreateGeometry()
 	//Loads the sponza scene
 	std::vector<std::string> textureFilepaths;
 
-	houseModel = new ImportedModel("Textures/Sponza/sponza.obj", true, "Textures/sponza/", textureFilepaths);
+	houseModel = new ImportedModel("Textures/salle_de_bain/salle_de_bain.obj", true, "Textures/salle_de_bain/", textureFilepaths);
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetVertexBufferSize(), &houseModel->GetVertexBuffer()->buffer, &houseModel->GetVertexBuffer()->memory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, houseModel->GetVertexData());
 	_CreateShaderBuffer(_renderer->GetVulkanDevice(), houseModel->GetIndexBufferSize(), &houseModel->GetIndexBuffer()->buffer, &houseModel->GetIndexBuffer()->memory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, houseModel->GetIndexData());
 	houseModel->GetIndexBuffer()->SetUpDescriptorSet();
@@ -753,7 +777,7 @@ void VulkanDeferredApplication::SetUpUniformBuffers()
 		*modelMat = glm::mat4(1.0f);
 		*modelMat = glm::translate(*modelMat, glm::vec3(0.0f, -2.0f, 0.0f));
 		//*modelMat = glm::rotate(*modelMat, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		*modelMat = glm::scale(*modelMat, glm::vec3(0.005f, 0.005f, 0.005f));
+		*modelMat = glm::scale(*modelMat, glm::vec3(0.1, 0.1, 0.1));
 		
 		//else if (i == 0)
 		//{ 
@@ -1741,6 +1765,9 @@ void VulkanDeferredApplication::_CreateOffScreenColorCommandBuffers()
 	render_pass_begin_info.framebuffer = offScreenColorFrameBuffer.frameBuffer;
 
 	vk::tools::ErrorCheck(vkBeginCommandBuffer(offScreenColorCmdBuffers, &command_buffer_begin_info));
+	vkCmdResetQueryPool(offScreenColorCmdBuffers, DeferredShadeQueryPool, 0, 1);
+	vkCmdResetQueryPool(offScreenColorCmdBuffers, DeferredShadeQueryPool, 1, 1);
+	vkCmdWriteTimestamp(offScreenColorCmdBuffers, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, DeferredShadeQueryPool, 0);
 	vkCmdBeginRenderPass(offScreenColorCmdBuffers, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
 	VkViewport viewport = {};
@@ -1770,8 +1797,7 @@ void VulkanDeferredApplication::_CreateOffScreenColorCommandBuffers()
 	vkCmdDrawIndexed(offScreenColorCmdBuffers, screenTarget->GetIndexCount(), 1, 0, 0, 1);
 
 	vkCmdEndRenderPass(offScreenColorCmdBuffers);
-	//vkCmdEndRenderPass(_drawCommandBuffers[i]);
-
+	vkCmdWriteTimestamp(offScreenColorCmdBuffers, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, DeferredShadeQueryPool, 1);
 	vk::tools::ErrorCheck(vkEndCommandBuffer(offScreenColorCmdBuffers));
 }
 
@@ -1907,6 +1933,10 @@ void VulkanDeferredApplication::CreateDeferredCommandBuffers()
 
 	//begin command buffer and start the render pass
 	vk::tools::ErrorCheck(vkBeginCommandBuffer(offScreenCmdBuffer, &cmdBufferBeginInfo));
+	vkCmdResetQueryPool(offScreenCmdBuffer, DeferredMRTQueryPool, 0, 1);
+	vkCmdResetQueryPool(offScreenCmdBuffer, DeferredMRTQueryPool, 1, 1);
+	vkCmdWriteTimestamp(offScreenCmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, DeferredMRTQueryPool, 0);
+
 	vkCmdBeginRenderPass(offScreenCmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 		VkViewport viewport = {};
@@ -1941,7 +1971,7 @@ void VulkanDeferredApplication::CreateDeferredCommandBuffers()
 
 
 	vkCmdEndRenderPass(offScreenCmdBuffer);
-
+	vkCmdWriteTimestamp(offScreenCmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, DeferredMRTQueryPool, 1);
 	//End the command buffer drawing
 	vk::tools::ErrorCheck(vkEndCommandBuffer(offScreenCmdBuffer));
 

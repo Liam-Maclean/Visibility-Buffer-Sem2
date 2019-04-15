@@ -24,7 +24,7 @@ VulkanWindow::VulkanWindow(Renderer* renderer, int width, int height)
 //Prepares the base of the scene
 void VulkanWindow::PrepareScene()
 {
-	sampleCount = VK_SAMPLE_COUNT_8_BIT;
+	sampleCount = VK_SAMPLE_COUNT_1_BIT;
 	VulkanWindow::_InitSurface();
 	VulkanWindow::_CreateSemaphores();
 	VulkanWindow::_CreateSwapChain();

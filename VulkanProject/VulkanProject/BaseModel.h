@@ -27,8 +27,6 @@ public:
 
 	//Create model function (where vertices and indices are created)
 	virtual void CreateModel();
-	void CreateBuffers();
-
 	static void LoadMeshFromFile(std::string modelPath, std::string materialPath, bool hasTexCoords, std::vector<BaseModel*>& models, std::vector<std::string>& textureFilepaths)
 	{
 		tinyobj::attrib_t attrib;
@@ -113,7 +111,6 @@ public:
 			{
 				textureFilepaths.push_back("Textures/DefaultTexture.jpg");
 			}
-			
 		}
 	}
 

@@ -238,7 +238,7 @@ void ImGUIInterface::initResources(VkRenderPass renderPass, VkQueue copyQueue)
 
 	//pipeline layout push constants (For image changing)
 	VkPushConstantRange pushConstantRange = {};
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	pushConstantRange.size = sizeof(PushConstBlock);
 	pushConstantRange.offset = 0;
 
@@ -425,8 +425,15 @@ void ImGUIInterface::newFrame(double frameTimerMRT, double frameTimerShading,  b
 		ImGui::Text(uiSettings.modelName.c_str());
 		ImGui::Text("Vertices: %i   Indices %i    triangles %i", uiSettings.vertices, uiSettings.indices, uiSettings.face);
 		ImGui::PlotLines("Geometry pass frame time", &uiSettings.frameTimesMRT[0], 50, 0, "", uiSettings.frameTimeMinMRT, uiSettings.frameTimeMaxMRT, ImVec2(0, 80));
-		
-		ImGui::Text("Geometry pass Averages - ");
+		uiSettings.averageMicrosecondsMRT = 0;
+		for (int i = 0; i < uiSettings.frameTimesMRT.size(); i++)
+		{
+			uiSettings.averageMicrosecondsMRT += uiSettings.frameTimesMRT[i];
+		}
+		uiSettings.averageMicrosecondsMRT = (uiSettings.averageMicrosecondsMRT / static_cast<uint32_t>(uiSettings.frameTimesMRT.size()));
+
+		ImGui::Text("Average ms: %f", (uiSettings.averageMicrosecondsMRT / 1000.0f));
+		ImGui::Text("Geometry Averages - ");
 		ImGui::SameLine(150);
 		ImGui::Text("Microseconds (us): %f", uiSettings.microsecondsMRT);
 		ImGui::SameLine(450);
@@ -437,6 +444,15 @@ void ImGUIInterface::newFrame(double frameTimerMRT, double frameTimerShading,  b
 
 
 		ImGui::PlotLines("Visibility shading frame time", &uiSettings.frameTimesShading[0], 50, 0, "", uiSettings.frameTimeMinShading, uiSettings.frameTimeMaxShading, ImVec2(0, 80));
+		uiSettings.averageMicrosecondsShading = 0;
+		for (int i = 0; i < uiSettings.frameTimesShading.size(); i++)
+		{
+			uiSettings.averageMicrosecondsShading += uiSettings.frameTimesShading[i];
+		}
+
+		uiSettings.averageMicrosecondsShading = (uiSettings.averageMicrosecondsShading / static_cast<uint32_t>(uiSettings.frameTimesShading.size()));
+
+		ImGui::Text("Average ms: %f", (uiSettings.averageMicrosecondsShading / 1000.0f));
 		ImGui::Text("Shading Averages - ");
 		ImGui::SameLine(150);
 		ImGui::Text("Microseconds (us): %f", uiSettings.microsecondsShading);
@@ -469,11 +485,8 @@ void ImGUIInterface::newFrame(double frameTimerMRT, double frameTimerShading,  b
 		{
 			uiSettings.averageMicrosecondsMRT += uiSettings.frameTimesMRT[i];
 		}
-
-
-
 		uiSettings.averageMicrosecondsMRT = (uiSettings.averageMicrosecondsMRT / static_cast<uint32_t>(uiSettings.frameTimesMRT.size()));
-		ImGui::Text("Average ms: %f", (uiSettings.averageMicrosecondsMRT /1000.0f));
+		ImGui::Text("Average ms: %f", (uiSettings.averageMicrosecondsMRT / 1000.0f));
 		ImGui::Text("Geometry pass Averages - ");
 		ImGui::SameLine(150);
 		ImGui::Text("Microseconds (us): %f", uiSettings.microsecondsMRT);

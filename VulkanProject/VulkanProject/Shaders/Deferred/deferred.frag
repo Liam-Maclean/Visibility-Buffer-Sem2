@@ -161,8 +161,6 @@ void main()
 				//get light intensity of the dot product of the normal and light direction
 				lightIntensity = max(0.0f, dot(normal, lightDir.xyz));
 				
-				
-				
 				//if the pixel is lit
 				if (lightIntensity > 0.0f)
 				{					
